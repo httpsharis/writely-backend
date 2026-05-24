@@ -1,0 +1,35 @@
+{
+  "name": "writely-backend",
+  "version": "1.0.0",
+  "description": "A clean, feature-based Express & TypeScript boilerplate.",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "keywords": [
+    "express",
+    "typescript",
+    "boilerplate",
+    "starter"
+  ],
+  "author": "Muhammad Haris",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "google-auth-library": "^10.6.2",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.6.2"
+  },
+  "devDependencies": {
+    "@types/helmet": "^0.0.48",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/mongoose": "^5.11.96",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  }
+}
