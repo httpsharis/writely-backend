@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
-import { googleLogin, getCurrentUser } from './authController';
+import { googleLogin, getCurrentUser, postmanTestLogin } from './authController';
 import { protect } from '../../middleware/authMiddleware';
 import { RequestHandler } from 'express'
 
@@ -12,6 +12,9 @@ const authLimiter = rateLimit({
     max: 10,
     message: { error: 'Too many login attempts, try again later.' }
 });
+
+// Remove this before going to production!
+router.post('/bypass', postmanTestLogin);
 
 // Apply the strict limiter ONLY to the login route
 router.post('/google', authLimiter, googleLogin as RequestHandler);

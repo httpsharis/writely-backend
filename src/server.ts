@@ -8,7 +8,9 @@ import { rateLimit } from 'express-rate-limit';
 
 // Route and Middleware Imports
 import userRoutes from './api/user/userRoute';
-import authRoutes from './api/auth/authRoute'; // Included assuming you still have this
+import authRoutes from './api/auth/authRoute'; 
+import documentRoutes from './api/document/documentRoute';
+
 import { errorHandler } from './middleware/errorHandler';
 
 // 1. Fail-Fast Environment Variable Validation
@@ -44,6 +46,7 @@ app.use(mongoSanitize());
 // 4. Routes
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/documents', documentRoutes);
 
 // 5. Global Error Handler (MUST be after routes)
 app.use(errorHandler);

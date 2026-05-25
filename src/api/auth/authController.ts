@@ -8,6 +8,30 @@ const GoogleLoginSchema = z.object({
     idToken: z.string().min(1, 'ID Token is required'),
 });
 
+// TEMPORARY ROUTE FOR POSTMAN TESTING ONLY
+export const postmanTestLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        // Find any user in the database, or create a fake one if DB is empty
+        let user = await userService.findUserByEmail('test@writely.com');
+        if (!user) {
+            user = await userService.createUser({
+                name: 'Postman Tester',
+                email: 'test@writely.com',
+                googleId: 'fake-google-id-123'
+            });
+        }
+
+        const accessToken = authService.generateAccessToken(user._id.toString());
+
+        res.status(200).json({ 
+            message: 'Bypass login successful', 
+            accessToken,
+            user: { id: user._id, name: user.name, email: user.email } 
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 export const googleLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const parsedData = GoogleLoginSchema.safeParse(req.body);

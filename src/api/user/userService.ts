@@ -17,7 +17,7 @@ export const createUser = async (userData: { name: string; email: string; google
 type UpdateableFields = Pick<IUser, 'name'>;
 
 export const updateUserProfile = async (id: string, updateData: UpdateableFields): Promise<IUser | null> => {
-    return await User.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+    return await User.findByIdAndUpdate(id, updateData, { returnDocument: 'after', runValidators: true });
 };
 
 export const saveRefreshToken = async (id: string, refreshToken: string): Promise<void> => {
