@@ -1,16 +1,27 @@
-import { Request, Response } from 'express';
-import User from './userModel';
+import { Response } from 'express';
+import { AuthRequest } from '../../middleware/authMiddleware'; // Make sure this is also camelCase now!
+import * as userService from './userService';
 
-export const createTestUser = async (req: Request, res: Response) => {
+export const getUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const newUser = await User.create({
-            name: 'Test Founder',
-            email: 'founder@writely.com',
-            passwordHash: 'fake-hashed-password-123'
-        });
+        const userId = req.user?.userId;
 
-        res.status(201).json({ message: 'User created perfectly via controller!', user: newUser });
+        if (!userId) {
+            res.status(400).json({ error: 'User ID missing from token' });
+            return;
+        }
+
+        // 🟢 Notice how we just call the service here!
+        const user = await userService.findUserById(userId);
+
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        res.status(200).json({ user });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to create user' });
+        console.error('Controller Error:', error);
+        res.status(500).json({ error: 'Failed to fetch user profile' });
     }
 };

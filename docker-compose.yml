@@ -12,6 +12,7 @@ services:
       - PORT=4000
       - NODE_ENV=development
       - MONGODB_URI=mongodb://mongo:27017/starter_db
+      - CHOKIDAR_USEPOLLING=true
     depends_on:
       - mongo
 
