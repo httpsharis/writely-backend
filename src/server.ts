@@ -10,6 +10,8 @@ import { rateLimit } from 'express-rate-limit';
 import userRoutes from './api/user/userRoute';
 import authRoutes from './api/auth/authRoute'; 
 import documentRoutes from './api/document/documentRoute';
+import likeRoutes from './api/like/likeRoute';
+import characterRoutes from './api/character/characterRoute';
 
 import { errorHandler } from './middleware/errorHandler';
 
@@ -47,6 +49,8 @@ app.use(mongoSanitize());
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/likes', likeRoutes);
+app.use('/api/characters', characterRoutes);
 
 // 5. Global Error Handler (MUST be after routes)
 app.use(errorHandler);

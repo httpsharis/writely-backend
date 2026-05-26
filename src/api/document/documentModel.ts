@@ -6,8 +6,15 @@ export interface IDocument extends Document {
   content: any;
   owner: mongoose.Types.ObjectId;
   status: "draft" | "published" | "archived";
+  type: "novel" | "chapter";
   parentId: mongoose.Types.ObjectId | null;
+  order: number;
+  synopsis: string;
+  genre: string[];
+  targetWordCount?: number;
   coverImage?: string;
+  viewsCount: number;
+  likesCount: number;
   icon?: string;
   deletedAt?: Date | null;
   createdAt: Date;
@@ -16,7 +23,7 @@ export interface IDocument extends Document {
 
 const DocumentSchema = new Schema<IDocument>(
   {
-    title: { type: String, required: true, default: "Untitled Document" },
+    title: { type: String, required: true, default: "Untitled" },
     slug: { type: String, required: true, unique: true },
     content: { type: Schema.Types.Mixed, default: {} },
     owner: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -25,17 +32,28 @@ const DocumentSchema = new Schema<IDocument>(
       enum: ["draft", "published", "archived"],
       default: "draft",
     },
+
+    type: { type: String, enum: ["novel", "chapter"], required: true },
+
     parentId: { type: Schema.Types.ObjectId, ref: "Document", default: null },
+    order: { type: Number, default: 0 },
+
+    synopsis: { type: String },
+    genre: [{ type: String }],
+    targetWordCount: { type: Number },
     coverImage: { type: String },
-    icon: { type: String },
-    deletedAt: { type: Date, default: null }, // Soft delete mechanism
+
+    viewsCount: { type: Number, default: 0 },
+    likesCount: { type: Number, default: 0 },
+
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
 
-// Performance Indexes
-DocumentSchema.index({ owner: 1, updatedAt: -1 }); // Dashboard query: "My docs, newest first"
-DocumentSchema.index({ status: 1, owner: 1 }); // Security query
-DocumentSchema.index({ parentId: 1 }); // Lobby/Chapter query
+// Performance & Relational Indexes
+DocumentSchema.index({ owner: 1, type: 1, updatedAt: -1 }); // "Get my novels"
+DocumentSchema.index({ parentId: 1, order: 1 }); // "Get chapters for this novel, in order"
+DocumentSchema.index({ status: 1, type: 1 }); // "Public library query"
 
 export default mongoose.model<IDocument>("Document", DocumentSchema);
