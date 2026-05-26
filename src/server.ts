@@ -1,69 +1,49 @@
 import 'dotenv/config';
-import express from 'express';
 import mongoose from 'mongoose';
-import cors from 'cors';
-import mongoSanitize from 'express-mongo-sanitize';
-import helmet from 'helmet';
-import { rateLimit } from 'express-rate-limit';
-
-// Route and Middleware Imports
-import userRoutes from './api/user/userRoute';
-import authRoutes from './api/auth/authRoute'; 
-import documentRoutes from './api/document/documentRoute';
-import likeRoutes from './api/like/likeRoute';
-import characterRoutes from './api/character/characterRoute';
-import uploadRoutes from './api/upload/uploadRoute';
-import exportRoutes from './api/export/exportRoute';
-
-import { errorHandler } from './middleware/errorHandler';
+import app from './app';
 
 // 1. Fail-Fast Environment Variable Validation
 const requiredEnvVars = ['JWT_SECRET', 'GOOGLE_CLIENT_ID', 'MONGODB_URI'];
 for (const key of requiredEnvVars) {
     if (!process.env[key]) {
-        throw new Error(`Missing required env var: ${key}`);
+        console.error(`FATAL ERROR: Missing required env var: ${key}`);
+        process.exit(1);
     }
 }
 
-const app = express();
-
-// 2. Parsers
-app.use(express.json());
-
-// 3. Global Security Middleware
-app.use(helmet());
-
-app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    credentials: true, 
-}));
-
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: { error: "Too many requests from this IP, try again later." }
-});
-app.use('/api', limiter); 
-
-app.use(mongoSanitize());
-
-// 4. Routes
-app.use('/api/users', userRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/documents', documentRoutes);
-app.use('/api/likes', likeRoutes);
-app.use('/api/characters', characterRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/export', exportRoutes);
-
-// 5. Global Error Handler (MUST be after routes)
-app.use(errorHandler);
-
-// 6. Database and Server Initialization
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI as string;
 
+// 2. Start Database and Server
+let server: any;
+
 mongoose.connect(MONGODB_URI).then(() => {
-    console.log('MongoDB connected');
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}).catch(err => console.log(err));
+    console.log('MongoDB connected successfully.');
+    
+    server = app.listen(PORT, () => {
+        console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}.`);
+    });
+}).catch(err => {
+    console.error('MongoDB connection failed:', err);
+    process.exit(1);
+});
+
+// 3. Graceful Shutdown
+// Ensures active connections and database writes are completed before the server terminates.
+const gracefulShutdown = () => {
+    console.log('Initiating graceful shutdown...');
+    if (server) {
+        server.close(() => {
+            console.log('HTTP server closed.');
+            mongoose.connection.close(false).then(() => {
+                console.log('MongoDB connection closed.');
+                process.exit(0);
+            });
+        });
+    } else {
+        process.exit(0);
+    }
+};
+
+process.on('SIGINT', gracefulShutdown);  // Triggered by manual termination (Ctrl+C)
+process.on('SIGTERM', gracefulShutdown); // Triggered by cloud provider scaling down
