@@ -13,6 +13,7 @@ import documentRoutes from './api/document/documentRoute';
 import likeRoutes from './api/like/likeRoute';
 import characterRoutes from './api/character/characterRoute';
 import uploadRoutes from './api/upload/uploadRoute';
+import exportRoutes from './api/export/exportRoute';
 
 import { errorHandler } from './middleware/errorHandler';
 
@@ -53,6 +54,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/likes', likeRoutes);
 app.use('/api/characters', characterRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/export', exportRoutes);
 
 // 5. Global Error Handler (MUST be after routes)
 app.use(errorHandler);
