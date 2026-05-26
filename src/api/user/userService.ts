@@ -1,29 +1,70 @@
-import User, { IUser } from './userModel';
+import Document from '../document/documentModel';
+import User from './userModel';
+import * as analyticsService from '../analytics/analyticsService';
+import WritingGoal from '../analytics/writingGoalModel';
+import { NotFoundError } from '../../utils/errors';
+import mongoose from 'mongoose';
+import WritingStat from '../analytics/writingStatModel';
 
-export const findUserByEmail = async (email: string): Promise<IUser | null> => {
-    return await User.findOne({ email });
+export const getMinimalDashboard = async (userId: string) => {
+    const [recentDocuments, wordsToday] = await Promise.all([
+        // 1. Get the 5 most recently edited novels or chapters
+        Document.find({ owner: userId, type: { $in: ['novel', 'chapter'] } })
+            .select('title slug type updatedAt parentId') // Exclude heavy content payloads
+            .sort({ updatedAt: -1 })
+            .limit(5)
+            .lean(),
+        
+        // 2. Get just today's word count for the progress bar
+        analyticsService.getDailyWordCount(userId, new Date())
+    ]);
+
+    return {
+        wordsToday,
+        recentDocuments
+    };
 };
 
-export const findUserById = async (id: string): Promise<IUser | null> => {
-    return await User.findById(id);
-};
+export const getProfileAnalytics = async (userId: string) => {
+    // The Trophy Room: Heavy data loading, only run when they visit the profile page
+    
+    // Calculate the 30-day cutoff for the heatmap
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-export const createUser = async (userData: { name: string; email: string; googleId: string }): Promise<IUser> => {
-    return await User.create(userData);
-};
-// ----------------
+    const [user, streaks, activeGoals, thirtyDayHeatmap] = await Promise.all([
+        User.findById(userId).lean(),
+        analyticsService.calculateStreak(userId),
+        WritingGoal.find({ userId, isActive: true }).lean(),
+        
+        // Advanced Aggregation: Generate a 30-day daily word count array for a GitHub-style heatmap
+        WritingStat.aggregate([
+            { 
+                $match: { 
+                    userId: new mongoose.Types.ObjectId(userId), 
+                    createdAt: { $gte: thirtyDaysAgo } 
+                } 
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                    dailyMax: { $max: '$wordCountSnapshot' }, // Approximates total per day simply
+                }
+            },
+            { $sort: { _id: 1 } }
+        ])
+    ]);
 
-// Define strictly what fields a user is permitted to update
-type UpdateableFields = Pick<IUser, 'name'>;
+    if (!user) throw new NotFoundError('User profile not found');
 
-export const updateUserProfile = async (id: string, updateData: UpdateableFields): Promise<IUser | null> => {
-    return await User.findByIdAndUpdate(id, updateData, { returnDocument: 'after', runValidators: true });
-};
-
-export const saveRefreshToken = async (id: string, refreshToken: string): Promise<void> => {
-    await User.findByIdAndUpdate(id, { refreshToken });
-};
-
-export const clearRefreshToken = async (id: string): Promise<void> => {
-    await User.findByIdAndUpdate(id, { $unset: { refreshToken: 1 } });
+    return {
+        profile: user.profile,
+        settings: user.settings,
+        analytics: {
+            currentStreak: streaks.current,
+            longestStreak: streaks.longest,
+            heatmap: thirtyDayHeatmap // Returns array of { _id: '2023-10-01', dailyMax: 1500 }
+        },
+        goals: activeGoals
+    };
 };

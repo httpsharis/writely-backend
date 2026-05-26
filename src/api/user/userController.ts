@@ -1,27 +1,27 @@
-import { Response } from 'express';
-import { AuthRequest } from '../../middleware/authMiddleware'; // Make sure this is also camelCase now!
+import { Response, NextFunction } from 'express';
 import * as userService from './userService';
+import { AuthRequest } from '../../middleware/authMiddleware';
 
-export const getUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getDashboardFeed = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
         const userId = req.user?.userId;
+        if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
 
-        if (!userId) {
-            res.status(400).json({ error: 'User ID missing from token' });
-            return;
-        }
-
-        // 🟢 Notice how we just call the service here!
-        const user = await userService.findUserById(userId);
-
-        if (!user) {
-            res.status(404).json({ error: 'User not found' });
-            return;
-        }
-
-        res.status(200).json({ user });
+        const dashboardData = await userService.getMinimalDashboard(userId);
+        res.status(200).json(dashboardData);
     } catch (error) {
-        console.error('Controller Error:', error);
-        res.status(500).json({ error: 'Failed to fetch user profile' });
+        next(error);
+    }
+};
+
+export const getProfileDashboard = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+        const profileData = await userService.getProfileAnalytics(userId);
+        res.status(200).json(profileData);
+    } catch (error) {
+        next(error);
     }
 };
