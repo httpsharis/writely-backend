@@ -4,6 +4,7 @@ export interface IUser extends Document {
     googleId: string;
     email: string;
     name: string;
+    refreshToken?: string;
     
     // 🟢 The Public Author Profile
     profile: {
@@ -39,6 +40,7 @@ const UserSchema = new Schema<IUser>(
         googleId: { type: String, required: true, unique: true },
         email: { type: String, required: true, unique: true },
         name: { type: String, required: true },
+        refreshToken: { type: String, default: null },
         
         profile: {
             bio: { type: String, default: '' },

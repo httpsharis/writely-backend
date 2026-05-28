@@ -90,10 +90,10 @@ export const updateDocument = async (req: AuthRequest, res: Response, next: Next
         // Convert string parentId to Mongoose ObjectId if present
         const updatePayload = {
             ...parsedData.data,
-            parentId: parsedData.data.parentId 
+            parentId: parsedData.data.parentId
                 ? new mongoose.Types.ObjectId(parsedData.data.parentId)
-                : parsedData.data.parentId === null 
-                    ? null 
+                : parsedData.data.parentId === null
+                    ? null
                     : undefined
         };
 
@@ -139,7 +139,7 @@ export const getPublicDocument = async (req: Request, res: Response, next: NextF
         const slug = req.params.slug as string;
 
         const document = await documentService.getPublishedDocumentBySlug(slug);
-        
+
         // If it doesn't exist, OR if it's set to 'draft', this returns 404
         if (!document) {
             res.status(404).json({ error: 'Document not found or is private' });
@@ -147,6 +147,31 @@ export const getPublicDocument = async (req: Request, res: Response, next: NextF
         }
 
         res.status(200).json({ document });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getTrash = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+        const trashedDocs = await documentService.getTrashedDocuments(userId);
+        res.status(200).json(trashedDocs);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const restoreFromTrash = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        const { id } = req.params;
+        if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+        const restoredDoc = await documentService.restoreDocument(id, userId);
+        res.status(200).json(restoredDoc);
     } catch (error) {
         next(error);
     }

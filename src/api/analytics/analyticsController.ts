@@ -16,7 +16,7 @@ export const recordSnapshot = async (req: AuthRequest, res: Response, next: Next
 
         const parsedData = SnapshotSchema.safeParse(req.body);
         if (!parsedData.success) {
-            res.status(400).json({ error: parsedData.error.errors[0].message });
+            res.status(400).json({ error: parsedData.error.issues[0].message });
             return;
         }
 

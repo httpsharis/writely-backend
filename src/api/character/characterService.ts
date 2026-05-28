@@ -4,7 +4,7 @@ import { NotFoundError, UnauthorizedError } from '../../utils/errors';
 
 export const createCharacter = async (novelId: string, userId: string, characterData: Partial<ICharacter>): Promise<ICharacter> => {
     // SECURITY: Verify the novel exists and belongs to the author
-    const novel = await Document.findOne({ _id: novelId, owner: userId, type: 'novel' });
+    const novel = await Document.findOne({ _id: novelId, owner: userId, type: 'novel', deletedAt: null });
     if (!novel) {
         throw new NotFoundError('Novel not found or access denied');
     }
@@ -14,7 +14,7 @@ export const createCharacter = async (novelId: string, userId: string, character
 
 export const getCharactersByNovel = async (novelId: string, userId: string): Promise<ICharacter[]> => {
     // SECURITY: Prevent unauthorized users from reading private character sheets
-    const novel = await Document.findOne({ _id: novelId, owner: userId, type: 'novel' });
+    const novel = await Document.findOne({ _id: novelId, owner: userId, type: 'novel', deletedAt: null });
     if (!novel) {
         throw new NotFoundError('Novel not found or access denied');
     }
@@ -29,7 +29,7 @@ export const updateCharacter = async (characterId: string, userId: string, updat
     if (!character) throw new NotFoundError('Character not found');
 
     // SECURITY: Verify the parent novel belongs to the user trying to update
-    const novel = await Document.findOne({ _id: character.novelId, owner: userId, type: 'novel' });
+    const novel = await Document.findOne({ _id: character.novelId, owner: userId, type: 'novel', deletedAt: null });
     if (!novel) throw new UnauthorizedError('Unauthorized to edit this character');
 
     delete updateData.novelId;
@@ -46,7 +46,7 @@ export const deleteCharacter = async (characterId: string, userId: string): Prom
     if (!character) return false;
 
     // SECURITY: Verify the parent novel belongs to the user trying to delete
-    const novel = await Document.findOne({ _id: character.novelId, owner: userId, type: 'novel' });
+    const novel = await Document.findOne({ _id: character.novelId, owner: userId, type: 'novel', deletedAt: null });
     if (!novel) throw new UnauthorizedError('Unauthorized to delete this character');
 
     await character.deleteOne();

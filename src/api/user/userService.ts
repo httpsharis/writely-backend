@@ -1,5 +1,5 @@
 import Document from '../document/documentModel';
-import User from './userModel';
+import User, { IUser } from './userModel';
 import * as analyticsService from '../analytics/analyticsService';
 import WritingGoal from '../analytics/writingGoalModel';
 import { NotFoundError } from '../../utils/errors';
@@ -68,3 +68,19 @@ export const getProfileAnalytics = async (userId: string) => {
         goals: activeGoals
     };
 };
+
+export const findUserByEmail = async (email: string) => {
+    return await User.findOne({ email });
+};
+
+export const findUserById = async (userId: string) => {
+    return await User.findById(userId);
+};
+
+export const createUser = async (userData: Partial<IUser>) => {
+    return await User.create(userData);
+};
+
+export const saveRefreshToken = async (userId: string, refreshToken: string) => {
+    return await User.findByIdAndUpdate(userId, { refreshToken }, { new: true });
+};

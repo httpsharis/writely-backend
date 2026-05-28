@@ -20,4 +20,7 @@ router.get('/:id', documentController.getDocumentById);
 router.put('/:id', documentController.updateDocument);
 router.delete('/:id', documentController.deleteDocument);
 
+router.get('/trash', documentController.getTrash);
+router.patch('/trash/:id/restore', documentController.restoreFromTrash);
+
 export default router;
