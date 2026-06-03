@@ -43,6 +43,9 @@ const DocumentSchema = new Schema<IDocument>(
     targetWordCount: { type: Number },
     coverImage: { type: String },
 
+    icon: { type: String },
+    
+
     viewsCount: { type: Number, default: 0 },
     likesCount: { type: Number, default: 0 },
 

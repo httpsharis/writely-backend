@@ -10,12 +10,17 @@ const generateSlug = (title: string): string => {
     return `${baseSlug || 'doc'}-${randomString}`;
 };
 
-export const createDocument = async (ownerId: string, title: string = 'Untitled Document', parentId: string | null = null): Promise<IDocument> => {
+export const createDocument = async (
+    ownerId: string,
+    title: string = 'Untitled Document',
+    parentId: string | null = null,
+    type: 'novel' | 'chapter' = 'novel'): Promise<IDocument> => {
     return await Document.create({
         title,
         slug: generateSlug(title),
         owner: ownerId,
-        parentId
+        parentId,
+        type
     });
 };
 

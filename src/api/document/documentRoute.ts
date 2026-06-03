@@ -5,22 +5,22 @@ import { protect } from '../../middleware/authMiddleware';
 const router = Router();
 
 // --- PUBLIC ROUTES (No auth required) ---
-// Readers fetch articles using the slug URL (e.g. /api/documents/public/my-first-chapter-a8f3b2)
 router.get('/public/:slug', documentController.getPublicDocument);
 
 // --- PROTECTED ROUTES (Requires valid JWT) ---
-router.use(protect); // Applies 'protect' to all routes below this line
+router.use(protect); 
 
 // Dashboard & Creation
 router.post('/', documentController.createDocument);
 router.get('/', documentController.getMyDocuments);
 
-// Editor Actions
+// TRASH ROUTES (Must be placed BEFORE /:id wildcards)
+router.get('/trash', documentController.getTrash);
+router.patch('/trash/:id/restore', documentController.restoreFromTrash);
+
+// EDITOR ACTIONS (Wildcards)
 router.get('/:id', documentController.getDocumentById);
 router.put('/:id', documentController.updateDocument);
 router.delete('/:id', documentController.deleteDocument);
-
-router.get('/trash', documentController.getTrash);
-router.patch('/trash/:id/restore', documentController.restoreFromTrash);
 
 export default router;

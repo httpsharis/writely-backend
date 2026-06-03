@@ -3,6 +3,51 @@ import { z } from 'zod';
 import * as authService from './authService';
 import * as userService from '../user/userService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { OAuth2Client, TokenPayload } from 'google-auth-library';
+import jwt from 'jsonwebtoken';
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// 1. Ask Google if the frontend's token is legitimate
+export const verifyGoogleToken = async (idToken: string): Promise<TokenPayload> => {
+    const ticket = await client.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email || !payload.sub) {
+        throw new Error('Invalid Google token payload');
+    }
+
+    return payload;
+};
+
+// 2. Generate short lived token (15 minutes)
+export const generateAccessToken = (userId: string): string => {
+    return jwt.sign(
+        { userId },
+        process.env.JWT_SECRET as string,
+        { expiresIn: '15m' }
+    );
+}
+
+// Long Lived Token (30 days)
+export const generateRefreshToken = (userId: string): string => {
+    return jwt.sign(
+        { userId },
+        process.env.JWT_SECRET as string,
+        { expiresIn: '30d' }
+    )
+}
+
+// Refresh Token Verification 
+export const verifyRefreshToken = (token: string): { userId: string } => {
+    return jwt.verify(
+        token,
+        process.env.JWT_SECRET as string
+    ) as { userId: string }
+}
 
 const GoogleLoginSchema = z.object({
     idToken: z.string().min(1, 'ID Token is required'),
@@ -11,7 +56,6 @@ const GoogleLoginSchema = z.object({
 // TEMPORARY ROUTE FOR POSTMAN TESTING ONLY
 export const postmanTestLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Find any user in the database, or create a fake one if DB is empty
         let user = await userService.findUserByEmail('test@writely.com');
         if (!user) {
             user = await userService.createUser({
@@ -22,6 +66,15 @@ export const postmanTestLogin = async (req: Request, res: Response, next: NextFu
         }
 
         const accessToken = authService.generateAccessToken(user._id.toString());
+        const refreshToken = authService.generateRefreshToken(user._id.toString());
+
+        // Attach secure cookie for Postman test as well
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 30 * 24 * 60 * 60 * 1000 
+        });
 
         res.status(200).json({ 
             message: 'Bypass login successful', 
@@ -32,11 +85,11 @@ export const postmanTestLogin = async (req: Request, res: Response, next: NextFu
         next(error);
     }
 };
+
 export const googleLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const parsedData = GoogleLoginSchema.safeParse(req.body);
         if (!parsedData.success) {
-            // Zod uses .issues, not .errors
             res.status(400).json({ error: parsedData.error.issues[0].message });
             return;
         }
@@ -44,7 +97,6 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
         const payload = await authService.verifyGoogleToken(parsedData.data.idToken);
         const { email, name, sub: googleId } = payload;
 
-        // Ensure email and googleId exist before querying the database
         if (!email || !googleId) {
             res.status(400).json({ error: 'Invalid token payload' });
             return;
@@ -61,17 +113,24 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
         }
 
         // Generate BOTH tokens
-        // Used .toString() instead of 'as string'
         const accessToken = authService.generateAccessToken(user._id.toString());
         const refreshToken = authService.generateRefreshToken(user._id.toString());
 
         // Save the refresh token to the database
         await userService.saveRefreshToken(user._id.toString(), refreshToken);
 
+        // --- SECURITY FIX: Set the httpOnly cookie ---
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true, // Blocks JavaScript from reading the token
+            secure: process.env.NODE_ENV === 'production', // Requires HTTPS in production
+            sameSite: 'strict', // Prevents CSRF attacks
+            maxAge: 30 * 24 * 60 * 60 * 1000 // 30 Days
+        });
+
+        // --- SECURITY FIX: Send ONLY the accessToken in JSON ---
         res.status(200).json({ 
             message: 'Login successful', 
             accessToken,
-            refreshToken,
             user: { id: user._id, name: user.name, email: user.email } 
         });
 
@@ -83,10 +142,11 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
 // The endpoint to get a fresh access token
 export const refreshToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { token } = req.body;
+        // --- SECURITY FIX: Read the token from the secure cookie, not req.body ---
+        const token = req.cookies?.refreshToken;
 
         if (!token) {
-            res.status(400).json({ error: 'Refresh token is required' });
+            res.status(401).json({ error: 'Refresh token is missing or expired' });
             return;
         }
 
@@ -101,7 +161,6 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
         }
 
         // 3. Generate a brand new access token
-        // FIXED: Used .toString() instead of 'as string'
         const newAccessToken = authService.generateAccessToken(user._id.toString());
 
         res.status(200).json({ accessToken: newAccessToken });
@@ -110,7 +169,6 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
     }
 };
 
-// FIXED: Renamed back to getCurrentUser to match authRoute.ts
 export const getCurrentUser = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
         const userId = req.user?.userId;

@@ -2,6 +2,7 @@ import 'dotenv/config';
 import mongoose from 'mongoose';
 import app from './app';
 
+
 // 1. Fail-Fast Environment Variable Validation
 const requiredEnvVars = ['JWT_SECRET', 'GOOGLE_CLIENT_ID', 'MONGODB_URI'];
 for (const key of requiredEnvVars) {

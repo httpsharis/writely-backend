@@ -4,6 +4,7 @@ import mongoSanitize from 'express-mongo-sanitize';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser'
 
 // Middleware Imports
 import { authLimiter, apiLimiter } from './middleware/rateLimitMiddleware';
@@ -19,6 +20,7 @@ import uploadRoutes from './api/upload/uploadRoute';
 import exportRoutes from './api/export/exportRoute';
 
 const app = express();
+app.use(cookieParser());
 
 // 1. Performance & Logging Middlewares
 app.use(compression()); // Compresses JSON responses for optimized payload delivery

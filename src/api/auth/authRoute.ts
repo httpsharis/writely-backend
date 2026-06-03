@@ -17,7 +17,7 @@ const authLimiter = rateLimit({
 router.post('/bypass', postmanTestLogin);
 
 // Apply the strict limiter ONLY to the login route
-router.post('/google', authLimiter, googleLogin as RequestHandler);
+router.post('/google-login', authLimiter, googleLogin as RequestHandler);
 
 // Protected route
 router.get('/me', protect as RequestHandler, getCurrentUser);

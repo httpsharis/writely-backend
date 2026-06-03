@@ -17,14 +17,16 @@ const UpdateDocumentSchema = z.object({
 export const createDocument = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
         const userId = req.user?.userId;
-        const { title, parentId } = req.body;
+        const { title, parentId, type } = req.body;
 
         if (!userId) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
         }
 
+        const docType = type || 'novel';
         const document = await documentService.createDocument(userId, title, parentId);
+
         res.status(201).json({ document });
     } catch (error) {
         next(error);
