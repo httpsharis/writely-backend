@@ -18,6 +18,7 @@ import likeRoutes from './api/like/likeRoute';
 import characterRoutes from './api/character/characterRoute';
 import uploadRoutes from './api/upload/uploadRoute';
 import exportRoutes from './api/export/exportRoute';
+import noteRoutes from './api/note/noteRoute'
 
 const app = express();
 app.use(cookieParser());
@@ -52,6 +53,7 @@ app.use('/api/likes', likeRoutes);
 app.use('/api/characters', characterRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/notes', noteRoutes)
 
 // 6. Global Error Handler
 app.use(errorHandler);
