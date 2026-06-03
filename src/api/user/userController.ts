@@ -1,4 +1,4 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as userService from './userService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 
@@ -21,6 +21,16 @@ export const getProfileDashboard = async (req: AuthRequest, res: Response, next:
 
         const profileData = await userService.getProfileAnalytics(userId);
         res.status(200).json(profileData);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getPublicProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { userId } = req.params;
+        const publicData = await userService.getPublicAuthorProfile(userId);
+        res.status(200).json(publicData);
     } catch (error) {
         next(error);
     }

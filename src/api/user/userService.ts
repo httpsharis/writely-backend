@@ -69,6 +69,31 @@ export const getProfileAnalytics = async (userId: string) => {
     };
 };
 
+export const getPublicAuthorProfile = async (userId: string) => {
+    // 1. Get the user's public info (Exclude settings, email, etc.)
+    const user = await User.findById(userId).select('name profile createdAt').lean();
+    if (!user) throw new NotFoundError('Author not found');
+
+    // 2. Fetch all PUBLISHED novels belonging to this author
+    const publishedNovels = await Document.find({
+        owner: userId,
+        type: 'novel',
+        status: 'published' // CRITICAL: Only show published works!
+    })
+    .select('title slug coverImage synopsis genre createdAt likesCount')
+    .sort({ createdAt: -1 })
+    .lean();
+
+    return {
+        author: {
+            name: user.name,
+            ...user.profile,
+            joinedAt: user.createdAt
+        },
+        novels: publishedNovels
+    };
+};
+
 export const findUserByEmail = async (email: string) => {
     return await User.findOne({ email });
 };
@@ -83,4 +108,4 @@ export const createUser = async (userData: Partial<IUser>) => {
 
 export const saveRefreshToken = async (userId: string, refreshToken: string) => {
     return await User.findByIdAndUpdate(userId, { refreshToken }, { new: true });
-};
+};
