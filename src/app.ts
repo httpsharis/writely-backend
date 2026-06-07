@@ -19,6 +19,9 @@ import characterRoutes from './api/character/characterRoute';
 import uploadRoutes from './api/upload/uploadRoute';
 import exportRoutes from './api/export/exportRoute';
 import noteRoutes from './api/note/noteRoute'
+import searchRoutes from './api/search/searchRoute'
+import profileRoute from './api/profile/profileRoute'
+import analyticsRoute from './api/analytics/analyticsRoute'
 
 const app = express();
 app.use(cookieParser());
@@ -54,6 +57,9 @@ app.use('/api/characters', characterRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/notes', noteRoutes)
+app.use('/api/search', searchRoutes)
+app.use('/api/profile', profileRoute)
+app.use('/api/analytics', analyticsRoute)
 
 // 6. Global Error Handler
 app.use(errorHandler);
