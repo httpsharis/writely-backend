@@ -32,7 +32,16 @@ export const createCharacter = async (req: AuthRequest, res: Response, next: Nex
             return;
         }
 
-        const character = await characterService.createCharacter(novelId, userId, parsedData.data as unknown as Partial<ICharacter>);
+        // 🔴 THE FIX: Convert "global" to null so Mongoose doesn't crash
+        const finalNovelId = novelId === "global" ? null : novelId;
+
+        // Note: 'as any' is used here just in case your characterService strictly expects a string.
+        const character = await characterService.createCharacter(
+            finalNovelId as any, 
+            userId, 
+            parsedData.data as unknown as Partial<ICharacter>
+        );
+        
         res.status(201).json({ character });
     } catch (error) {
         next(error);
@@ -46,7 +55,11 @@ export const getNovelCharacters = async (req: AuthRequest, res: Response, next: 
 
         if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
 
-        const characters = await characterService.getCharactersByNovel(novelId, userId);
+        // 🔴 THE FIX: Also apply it here so your dashboard can successfully FETCH global characters
+        const finalNovelId = novelId === "global" ? null : novelId;
+
+        const characters = await characterService.getCharactersByNovel(finalNovelId as any, userId);
+        
         res.status(200).json({ characters });
     } catch (error) {
         next(error);
