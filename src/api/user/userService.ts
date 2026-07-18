@@ -6,10 +6,11 @@ import { NotFoundError } from "../../utils/errors";
 import mongoose from "mongoose";
 import WritingStat from "../analytics/writingStatModel";
 
-interface CreateGoogleUserDTO {
+interface CreateUserDTO {
   email: string;
   name: string;
-  googleId: string;
+  googleId?: string;
+  password?: string;
   profilePicture?: string;
   profile?: Partial<IUser["profile"]>;
 }
@@ -114,12 +115,13 @@ export const findUserById = async (userId: string) => {
   return await User.findById(userId);
 };
 
-export const createUser = async (userData: CreateGoogleUserDTO) => {
+export const createUser = async (userData: CreateUserDTO) => {
   try {
     return await User.create({
       email: userData.email,
       name: userData.name,
       googleId: userData.googleId,
+      password: userData.password,
       profile: {
         avatarUrl: userData.profilePicture,
       },

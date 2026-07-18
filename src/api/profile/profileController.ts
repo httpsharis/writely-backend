@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
-import Document from "../document/documentModel";;
+import Document from "../document/documentModel";
+import * as analyticsService from "../analytics/analyticsService";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -7,17 +8,18 @@ interface AuthRequest extends Request {
 
 export const getProfileDashboard = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user._id; 
+    const userId = req.user.userId; 
 
     // 1. Fetch real documents
-    const recentDocuments = await Document.find({ author: userId })
+    const recentDocuments = await Document.find({ owner: userId })
       .sort({ updatedAt: -1 })
       .limit(4)
-      .select("title type status chapters wordCount updatedAt");
+      .select("title type status chapters wordCount updatedAt")
+      .lean();
 
     // 2. Calculate Total Words and Active Projects
     const statsAggregation = await Document.aggregate([
-      { $match: { author: userId } },
+      { $match: { owner: userId } },
       {
         $group: {
           _id: null,
@@ -32,8 +34,9 @@ export const getProfileDashboard = async (req: AuthRequest, res: Response) => {
     const totalWords = statsAggregation[0]?.totalWords || 0;
     const activeProjects = statsAggregation[0]?.activeProjects || 0;
     
-    // 3. Hardcoded to 0 to bypass the TypeScript error. We will link your Analytics later!
-    const currentStreak = 0;
+    // 3. Link real Analytics
+    const streaks = await analyticsService.calculateStreak(userId);
+    const currentStreak = streaks.current;
 
     res.status(200).json({
       success: true,

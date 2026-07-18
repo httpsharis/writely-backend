@@ -16,6 +16,117 @@ const formatUserResponse = (user: any) => ({
 });
 
 // ==========================================
+// 0. TRADITIONAL EMAIL/PASSWORD LOGIN
+// ==========================================
+import bcrypt from "bcryptjs";
+
+const RegisterSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+const LoginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const parsed = RegisterSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
+      return;
+    }
+
+    const { email, password, name } = parsed.data;
+
+    let user = await userService.findUserByEmail(email);
+    if (user) {
+      res.status(400).json({ error: "User already exists" });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    user = await userService.createUser({
+      name,
+      email,
+      password: hashedPassword,
+    });
+
+    if (!user) {
+      res.status(500).json({ error: "Failed to create user" });
+      return;
+    }
+
+    const [access, refresh] = [
+      authService.generateAccessToken(user._id.toString()),
+      authService.generateRefreshToken(user._id.toString()),
+    ];
+
+    await userService.saveRefreshToken(user._id.toString(), refresh);
+
+    res
+      .cookie("refreshToken", refresh, cookieConfig.refresh())
+      .status(201)
+      .json({
+        message: "Registration successful",
+        accessToken: access,
+        user: formatUserResponse(user),
+      });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const parsed = LoginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
+      return;
+    }
+
+    const { email, password } = parsed.data;
+
+    // Use a custom query to include the password field since it is select: false
+    const User = require("../user/userModel").default;
+    const user = await User.findOne({ email }).select("+password");
+
+    if (!user || !user.password) {
+      res.status(401).json({ error: "Invalid credentials" });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      res.status(401).json({ error: "Invalid credentials" });
+      return;
+    }
+
+    const [access, refresh] = [
+      authService.generateAccessToken(user._id.toString()),
+      authService.generateRefreshToken(user._id.toString()),
+    ];
+
+    await userService.saveRefreshToken(user._id.toString(), refresh);
+
+    res
+      .cookie("refreshToken", refresh, cookieConfig.refresh())
+      .status(200)
+      .json({
+        message: "Login successful",
+        accessToken: access,
+        user: formatUserResponse(user),
+      });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==========================================
 // 1. DEVELOPMENT DUMMY LOGIN
 // ==========================================
 export const devDummyLogin = async (
@@ -163,12 +274,12 @@ export const getCurrentUser = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    if (!req.user?._id) {
+    if (!req.user?.userId) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
 
-    const user = await userService.findUserById(req.user._id);
+    const user = await userService.findUserById(req.user.userId);
 
     if (!user) {
       res.status(404).json({ error: "User not found" });
@@ -185,23 +296,26 @@ export const getCurrentUser = async (
 
 // LOGOUT
 export const logout = async (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    // 1. Remove the refresh token from the database if user is known
-    if (req.user?._id) {
-      await userService.saveRefreshToken(req.user._id.toString(), "");
+    // 1. Remove the refresh token from the database if provided
+    const token = req.cookies?.refreshToken;
+    if (token) {
+      try {
+        // Decode to find which user to clear the token for
+        const decoded = authService.verifyRefreshToken(token);
+        await userService.saveRefreshToken(decoded.userId, "");
+      } catch (err) {
+        // Token is invalid/expired, it's safe to ignore DB cleanup
+      }
     }
 
     // 2. Clear the HTTP-Only cookie so the browser deletes it
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/", // Must match the path used when setting the cookie!
-    });
+    // Use cookieConfig.clear() so sameSite, secure, and path match exactly
+    res.clearCookie("refreshToken", cookieConfig.clear());
 
     res.status(200).json({ message: "Successfully logged out" });
   } catch (error) {

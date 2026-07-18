@@ -14,7 +14,26 @@ export const createNote = async (novelId: string, userId: string, noteData: Part
         throw new NotFoundError('Novel not found or access denied');
     }
 
-    return await Note.create({ ...noteData, novelId });
+    return await Note.create({ ...noteData, novelId, owner: userId });
+};
+
+export const createInboxNote = async (userId: string, noteData: Partial<INote>): Promise<INote> => {
+    return await Note.create({ ...noteData, owner: userId });
+};
+
+export const getInboxNotes = async (
+    userId: string, 
+    page: number = 1,
+    limit: number = 50
+): Promise<{ notes: INote[], total: number }> => {
+    const query = { owner: userId, novelId: { $exists: false } }; // Unassigned notes only
+
+    const [notes, total] = await Promise.all([
+        Note.find(query).sort({ updatedAt: -1 }).skip((page - 1) * limit).limit(limit),
+        Note.countDocuments(query)
+    ]);
+
+    return { notes, total };
 };
 
 export const getNotesByNovel = async (
@@ -46,11 +65,14 @@ export const updateNote = async (noteId: string, userId: string, updateData: Par
     const note = await Note.findById(noteId);
     if (!note) throw new NotFoundError('Note not found');
 
-    // SECURITY: Verify the parent novel belongs to the user trying to update the note
-    const novel = await Document.findOne({ _id: note.novelId, owner: userId, type: 'novel' });
-    if (!novel) throw new UnauthorizedError('Unauthorized to edit this note');
-
-    delete updateData.novelId;
+    // SECURITY: Verify the user owns the note directly, OR owns the parent novel
+    if (note.owner && note.owner.toString() !== userId) {
+        throw new UnauthorizedError('Unauthorized to edit this note');
+    } else if (!note.owner) {
+        // Fallback for legacy notes created before 'owner' was added to the schema
+        const novel = await Document.findOne({ _id: note.novelId, owner: userId, type: 'novel' });
+        if (!novel) throw new UnauthorizedError('Unauthorized to edit this note');
+    }
 
     return await Note.findByIdAndUpdate(
         noteId,
@@ -63,9 +85,13 @@ export const deleteNote = async (noteId: string, userId: string): Promise<boolea
     const note = await Note.findById(noteId);
     if (!note) return false; // Controller will handle 404
 
-    // SECURITY: Verify the parent novel belongs to the user trying to delete the note
-    const novel = await Document.findOne({ _id: note.novelId, owner: userId, type: 'novel' });
-    if (!novel) throw new UnauthorizedError('Unauthorized to delete this note');
+    // SECURITY: Verify the user owns the note directly, OR owns the parent novel
+    if (note.owner && note.owner.toString() !== userId) {
+        throw new UnauthorizedError('Unauthorized to delete this note');
+    } else if (!note.owner) {
+        const novel = await Document.findOne({ _id: note.novelId, owner: userId, type: 'novel' });
+        if (!novel) throw new UnauthorizedError('Unauthorized to delete this note');
+    }
 
     await note.deleteOne();
     return true;

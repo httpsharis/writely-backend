@@ -7,6 +7,10 @@ const router = Router();
 // Protect all note routes
 router.use(protect);
 
+// Global / Inbox routes
+router.post('/', noteController.createInboxNote);
+router.get('/', noteController.getInboxNotes);
+
 // Routes tied to the parent Novel
 router.post('/novel/:novelId', noteController.createNote);
 router.get('/novel/:novelId', noteController.getNovelNotes);

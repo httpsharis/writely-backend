@@ -46,15 +46,12 @@ app.use(
 app.use(mongoSanitize());
 
 // 4. Rate Limiting
-// Apply the strict IP limiter exclusively to login and registration
-app.use("/api/auth", authLimiter);
-
 // Apply the identity-based limiter to all other API requests
 app.use("/api", apiLimiter);
 
 // 5. Routes
 app.use("/api/users", userRoutes);
-app.use("/api/auth", authRoutes); // Auth routes are protected by authLimiter above
+app.use("/api/auth", authRoutes); // Auth routes handle their own specific limiting
 app.use("/api/documents", documentRoutes);
 app.use("/api/likes", likeRoutes);
 app.use("/api/characters", characterRoutes);

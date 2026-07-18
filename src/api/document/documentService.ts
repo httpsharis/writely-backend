@@ -39,7 +39,8 @@ export const getUserDocuments = async (ownerId: string): Promise<IDocument[]> =>
     // Only return documents that are NOT soft-deleted
     return await Document.find({ owner: ownerId, deletedAt: null })
         .select('-content') // Exclude heavy content payloads for the dashboard list
-        .sort({ updatedAt: -1 });
+        .sort({ updatedAt: -1 })
+        .lean();
 };
 
 export const getDocumentById = async (docId: string, ownerId: string) => {
@@ -74,7 +75,8 @@ export const getDocumentById = async (docId: string, ownerId: string) => {
 export const getPublishedDocumentBySlug = async (slug: string): Promise<IDocument | null> => {
     // Only fetch if it's published and not deleted
     return await Document.findOne({ slug, status: 'published', deletedAt: null })
-        .populate('owner', 'name'); // Attach the author's name for the public reader UI
+        .populate('owner', 'name') // Attach the author's name for the public reader UI
+        .lean();
 };
 
 export const updateDocument = async (docId: string, ownerId: string, updateData: Partial<IDocument>): Promise<IDocument | null> => {

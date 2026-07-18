@@ -1,7 +1,8 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface INote extends Document {
-    novelId: mongoose.Types.ObjectId;
+    owner: mongoose.Types.ObjectId;
+    novelId?: mongoose.Types.ObjectId;
     title: string;
     content: any; // TipTap JSON or plain text
     type: 'lore' | 'plot' | 'worldbuilding' | 'research' | 'timeline' | 'misc';
@@ -11,7 +12,8 @@ export interface INote extends Document {
 
 const NoteSchema = new Schema<INote>(
     {
-        novelId: { type: Schema.Types.ObjectId, ref: 'Document', required: true },
+        owner: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        novelId: { type: Schema.Types.ObjectId, ref: 'Document' },
         title: { type: String, required: true, default: 'Untitled Note' },
         content: { type: Schema.Types.Mixed, default: {} },
         type: { 

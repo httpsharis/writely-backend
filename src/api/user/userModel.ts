@@ -1,7 +1,8 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IUser extends Document {
-  googleId: string;
+  googleId?: string;
+  password?: string;
   email: string;
   name: string;
   refreshToken?: string;
@@ -37,7 +38,8 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
   {
-    googleId: { type: String, required: true, unique: true },
+    googleId: { type: String, unique: true, sparse: true },
+    password: { type: String, select: false },
     email: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     refreshToken: { type: String, default: null },
@@ -71,5 +73,13 @@ const UserSchema = new Schema<IUser>(
   },
   { timestamps: true },
 );
+
+UserSchema.pre("validate", function (next) {
+  if (!this.googleId && !this.password) {
+    next(new Error("A user must have either a googleId or a password."));
+  } else {
+    next();
+  }
+});
 
 export default mongoose.model<IUser>("User", UserSchema);

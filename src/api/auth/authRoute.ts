@@ -1,24 +1,22 @@
 import { Router } from 'express';
-import { rateLimit } from 'express-rate-limit';
-import { googleLogin, getCurrentUser, devDummyLogin } from './authController';
+import { googleLogin, getCurrentUser, devDummyLogin, refreshToken, logout, register, login } from './authController';
 import { protect } from '../../middleware/authMiddleware';
-import { RequestHandler } from 'express'
+import { authLimiter } from '../../middleware/rateLimitMiddleware';
+import { RequestHandler } from 'express';
 
 const router = Router();
 
-// Strict limiter: Only 10 login attempts per 15 minutes per IP
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: { error: 'Too many login attempts, try again later.' }
-});
-
-// Apply the strict limiter ONLY to the login route
+// Apply the strict limiter ONLY to the login routes
+router.post('/register', authLimiter, register as RequestHandler);
+router.post('/login', authLimiter, login as RequestHandler);
 router.post('/google-login', authLimiter, googleLogin as RequestHandler);
+router.post('/dev-login', authLimiter, devDummyLogin as RequestHandler);
 
-// Protected route
+// Token routes (Unprotected, handles its own validation)
+router.post('/refresh', refreshToken as RequestHandler);
+router.post('/logout', logout as RequestHandler);
+
+// Protected routes
 router.get('/me', protect as RequestHandler, getCurrentUser);
-
-router.post('/dummy-login', devDummyLogin);
 
 export default router;

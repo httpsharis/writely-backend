@@ -3,11 +3,13 @@ import { z } from 'zod';
 import * as noteService from './noteService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import { AppError } from '../../utils/errors';
+import { INote } from './noteModel';
 
 const NoteSchema = z.object({
     title: z.string().min(1, "Note title is required"),
     content: z.any().optional(),
-    type: z.enum(['lore', 'plot', 'worldbuilding', 'research', 'timeline', 'misc']).optional()
+    type: z.enum(['lore', 'plot', 'worldbuilding', 'research', 'timeline', 'misc']).optional(),
+    novelId: z.string().optional()
 });
 
 export const createNote = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -23,7 +25,26 @@ export const createNote = async (req: AuthRequest, res: Response, next: NextFunc
             return;
         }
 
-        const note = await noteService.createNote(novelId, userId, parsedData.data);
+        const note = await noteService.createNote(novelId, userId, parsedData.data as Partial<INote>);
+        res.status(201).json({ note });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const createInboxNote = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        
+        if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+        const parsedData = NoteSchema.safeParse(req.body);
+        if (!parsedData.success) {
+            res.status(400).json({ error: parsedData.error.issues[0].message });
+            return;
+        }
+
+        const note = await noteService.createInboxNote(userId, parsedData.data as Partial<INote>);
         res.status(201).json({ note });
     } catch (error) {
         next(error);
@@ -48,6 +69,23 @@ export const getNovelNotes = async (req: AuthRequest, res: Response, next: NextF
     }
 };
 
+export const getInboxNotes = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        const { page, limit } = req.query;
+
+        if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+        const pageNum = parseInt(page as string) || 1;
+        const limitNum = parseInt(limit as string) || 50;
+
+        const result = await noteService.getInboxNotes(userId, pageNum, limitNum);
+        res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const updateNote = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
         const userId = req.user?.userId;
@@ -62,7 +100,7 @@ export const updateNote = async (req: AuthRequest, res: Response, next: NextFunc
             return;
         }
 
-        const updatedNote = await noteService.updateNote(noteId, userId, parsedData.data);
+        const updatedNote = await noteService.updateNote(noteId, userId, parsedData.data as Partial<INote>);
         res.status(200).json({ note: updatedNote });
     } catch (error) {
         next(error);

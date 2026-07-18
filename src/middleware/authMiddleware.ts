@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 // Extend the Express Request to include our custom user data
 export interface AuthRequest extends Request {
   user?: { 
-    _id: string; 
+    userId: string; 
     name?: string;
     email?: string;
   };
@@ -25,8 +25,8 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction): vo
   }
 
   try {
-    // Verify the token using your secret key
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { _id: string };
+    // Verify the token using your access secret key
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET as string) as { userId: string };
     
     // Attach the user ID to the request so the controller knows exactly who is making the request
     req.user = decoded;
