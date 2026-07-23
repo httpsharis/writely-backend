@@ -1,22 +1,59 @@
+// In: src/api/auth/authRoutes.ts
 import { Router } from 'express';
-import { googleLogin, getCurrentUser, devDummyLogin, refreshToken, logout, register, login } from './authController';
+import { 
+  googleLogin, 
+  getCurrentUser, 
+  refreshToken, 
+  logout, 
+  register, 
+  login, 
+} from './authController';
 import { protect } from '../../middleware/authMiddleware';
 import { authLimiter } from '../../middleware/rateLimitMiddleware';
-import { RequestHandler } from 'express';
 
 const router = Router();
 
-// Apply the strict limiter ONLY to the login routes
-router.post('/register', authLimiter, register as RequestHandler);
-router.post('/login', authLimiter, login as RequestHandler);
-router.post('/google-login', authLimiter, googleLogin as RequestHandler);
-router.post('/dev-login', authLimiter, devDummyLogin as RequestHandler);
+/**
+ * @route POST /api/auth/register
+ * @desc Register a new user with email/password
+ * @access Public
+ */
+router.post('/register', authLimiter, register);
 
-// Token routes (Unprotected, handles its own validation)
-router.post('/refresh', refreshToken as RequestHandler);
-router.post('/logout', logout as RequestHandler);
+/**
+ * @route POST /api/auth/login
+ * @desc Login with email/password
+ * @access Public
+ */
+router.post('/login', authLimiter, login);
 
-// Protected routes
-router.get('/me', protect as RequestHandler, getCurrentUser);
+/**
+ * @route POST /api/auth/google-login
+ * @desc Login/Register via Google OAuth
+ * @access Public
+ */
+router.post('/google-login', authLimiter, googleLogin);
+
+/**
+ * @route POST /api/auth/refresh
+ * @desc Refresh access token using HTTP-only cookie
+ * @access Public
+ */
+router.post('/refresh', refreshToken);
+
+/**
+ * @route POST /api/auth/logout
+ * @desc Clear HTTP-only cookie and invalidate refresh token
+ * @access Public
+ */
+router.post('/logout', logout);
+
+/**
+ * @route GET /api/auth/me
+ * @desc Get current authenticated user's data
+ * @access Private
+ */
+router.get('/me', protect, getCurrentUser);
+
 
 export default router;

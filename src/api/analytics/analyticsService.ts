@@ -47,6 +47,8 @@ export const getDailyWordCount = async (userId: string, targetDate: Date): Promi
                 createdAt: { $gte: startOfDay, $lte: endOfDay }
             }
         },
+        // Sort chronologically so $first and $last work accurately
+        { $sort: { createdAt: 1 } },
         // Step 2: Group by chapter and grab the first and last snapshot of the day
         {
             $group: {

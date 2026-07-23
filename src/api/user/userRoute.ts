@@ -1,17 +1,19 @@
-import { Router } from 'express';
-import * as userController from './userController';
-import { protect } from '../../middleware/authMiddleware';
+// In: src/api/user/userRoutes.ts
+import { Router } from "express";
+import { getDashboard, getAnalytics, updateProfile, getPublicProfile, UpdateProfileSchema } from "./userController"; // <-- Import Schema from userController now!
+import { protect } from "../../middleware/authMiddleware";
+import { validateRequest } from "../../middleware/validateMiddleware";
 
 const router = Router();
 
-// Readers can visit /api/users/public/12345 to see the author's page
-router.get('/public/:userId', userController.getPublicProfile);
+// Private Routes (Require JWT Token)
+router.use(protect); 
 
-// Protect all user routes
-router.use(protect);
+router.get("/dashboard", getDashboard);
+router.get("/analytics", getAnalytics);
+router.put("/profile", validateRequest(UpdateProfileSchema), updateProfile);
 
-router.get('/dashboard', userController.getDashboardFeed);
-
-router.get('/profile', userController.getProfileDashboard);
+// Public Routes
+router.get("/:username", getPublicProfile);
 
 export default router;
