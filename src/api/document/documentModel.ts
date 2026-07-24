@@ -10,7 +10,7 @@ export interface IDocument extends Document {
   _id: Types.ObjectId;
   title: string;
   slug: string;
-  content: any; // TipTap JSON
+  content: Record<string, unknown>;
   owner: Types.ObjectId;
   status: "draft" | "published" | "archived";
   type: "novel" | "chapter";
@@ -67,7 +67,10 @@ const DocumentSchema = new Schema<IDocument>(
 
 // Performance & Relational Indexes
 // Text Index for Omni-Search
-DocumentSchema.index({ title: 'text', synopsis: 'text' }, { name: 'DocumentTextIndex' });
+DocumentSchema.index(
+  { title: "text", synopsis: "text" },
+  { name: "DocumentTextIndex" },
+);
 DocumentSchema.index({ owner: 1, type: 1, updatedAt: -1 });
 DocumentSchema.index({ parentId: 1, order: 1 });
 DocumentSchema.index({ status: 1, type: 1 });

@@ -8,7 +8,7 @@ import mongoose from "mongoose";
 import Document, { IDocument } from "./documentModel";
 import { NotFoundError } from "../../utils/errors";
 
-// 🟢 DTO Interface for clean function signatures
+// Interface for clean function signatures
 interface CreateDocDTO {
   title?: string;
   parentId?: string | null;
@@ -96,7 +96,7 @@ export const updateDocument = async (
   if (updateData.parentId && typeof updateData.parentId === "string") {
     updateData.parentId = new mongoose.Types.ObjectId(
       updateData.parentId,
-    ) as any;
+    ) as unknown as typeof updateData.parentId;
   }
 
   return Document.findOneAndUpdate(

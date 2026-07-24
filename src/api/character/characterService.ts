@@ -5,7 +5,7 @@
 
 import Character, { ICharacter } from "./characterModel";
 import Document from "../document/documentModel";
-import { NotFoundError, UnauthorizedError } from "../../utils/errors";
+import { NotFoundError } from "../../utils/errors";
 
 export const createCharacter = async (
   novelId: string | null,

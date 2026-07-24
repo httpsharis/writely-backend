@@ -5,7 +5,7 @@
  */
 import { rateLimit } from "express-rate-limit";
 import * as crypto from "crypto";
-import { Request, Response } from "express";
+import { Request } from "express";
 
 /**
  * @desc Strict limiter specifically for /login and /register routes.
@@ -32,7 +32,7 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false,
   validate: false,
 
-  keyGenerator: (req: Request, res: Response): string => {
+  keyGenerator: (req: Request): string => {
     const authHeader = req.headers.authorization;
 
     // Rate limit by actual User Identity if logged in

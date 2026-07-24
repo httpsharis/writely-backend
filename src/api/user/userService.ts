@@ -3,7 +3,7 @@
  * @desc Core domain logic for Users. Executes highly-optimized MongoDB queries.
  */
 
-import mongoose, { Types } from "mongoose";
+import { Types } from "mongoose";
 import User from "./userModel";
 import Document from "../document/documentModel";
 import WritingGoal from "../analytics/writingGoalModel";
@@ -39,9 +39,15 @@ export const createUser = async (userData: CreateUserDTO) => {
       ...userData,
       profile: { avatarUrl: userData.profilePicture },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    // Then we safely cast it to check for MongoDB's duplicate key error (11000).
+    const mongoError = error as { code?: number };
+
     // Graceful fallback for duplicate key errors (OAuth race conditions)
-    if (error.code === 11000) return User.findOne({ email: userData.email });
+    if (mongoError.code === 11000) {
+      return User.findOne({ email: userData.email });
+    }
+
     throw error;
   }
 };

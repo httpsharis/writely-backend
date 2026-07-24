@@ -76,7 +76,7 @@ export const calculateStreak = async (userId: string) => {
 
   if (!activeDays.length) return { current: 0, longest: 0 };
 
-  let [current, longest, temp] = [0, 0, 1];
+  let [longest, temp] = [0, 1];
   const today = new Date().toISOString().split("T")[0];
   const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
   const mostRecentDay = activeDays[0]._id;

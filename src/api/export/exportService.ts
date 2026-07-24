@@ -5,11 +5,20 @@
 import Document from "../document/documentModel";
 import { NotFoundError } from "../../utils/errors";
 
+interface TipTapNode {
+  type?: string;
+  text?: string;
+  content?: TipTapNode[];
+  [key: string]: unknown;
+}
+
 /**
  * @desc Recursively extracts raw text from TipTap/ProseMirror JSON structures.
  * Converts paragraph and heading nodes into text with proper line breaks.
  */
-const extractTextFromTipTap = (node: any): string => {
+const extractTextFromTipTap = (
+  node: TipTapNode | string | null | undefined,
+): string => {
   if (!node) return "";
   if (typeof node === "string") return node; // Fallback for raw strings
   if (node.type === "text") return node.text || "";

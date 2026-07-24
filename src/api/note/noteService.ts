@@ -60,7 +60,7 @@ export const getNotesByNovel = async (
   });
   if (!novelExists) throw new NotFoundError("Novel not found or access denied");
 
-  const query: any = { novelId, owner: userId };
+  const query: Record<string, unknown> = { novelId, owner: userId };
   if (typeFilter) query.type = typeFilter;
 
   const [notes, total] = await Promise.all([

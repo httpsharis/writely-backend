@@ -9,7 +9,7 @@ export interface INote extends Document {
   owner: Types.ObjectId;
   novelId?: Types.ObjectId | null;
   title: string;
-  content: any; // TipTap JSON
+  content: Record<string, unknown>;
   type: "lore" | "plot" | "worldbuilding" | "research" | "timeline" | "misc";
   createdAt: Date;
   updatedAt: Date;

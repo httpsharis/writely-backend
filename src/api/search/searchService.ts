@@ -2,7 +2,6 @@
  * @file searchService.ts
  * @desc Executes highly optimized text-index searches across multiple collections in parallel.
  */
-import mongoose from "mongoose";
 import Document from "../document/documentModel";
 import Character from "../character/characterModel";
 import Note from "../note/noteModel";

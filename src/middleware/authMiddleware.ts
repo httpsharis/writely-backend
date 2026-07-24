@@ -41,7 +41,7 @@ export const protect = (
     ) as { userId: string };
     req.user = decoded;
     next();
-  } catch (error) {
+  } catch {
     res.status(401).json({ error: "Not authorized, token failed or expired" });
   }
 };

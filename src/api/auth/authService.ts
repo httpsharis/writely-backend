@@ -76,7 +76,7 @@ export const findOrCreateGoogleUser = async ({
   picture,
   sub: googleId,
 }: TokenPayload): Promise<IUser> => {
-  let user = await User.findOne({ email });
+  const user = await User.findOne({ email });
 
   if (!user) {
     // 1. Strip spaces and special characters from the Google name

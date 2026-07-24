@@ -68,8 +68,18 @@ export const getPublicProfileByUsername = async (username: string) => {
  * @desc Updates the user's profile using MongoDB "dot notation" to safely
  * modify nested fields without overwriting the entire profile object.
  */
-export const updateUserProfile = async (userId: string, data: any) => {
-  const updatePayload: any = {};
+export const updateUserProfile = async (
+  userId: string,
+  data: Partial<{
+    name: string;
+    bio: string;
+    avatarUrl: string;
+    website: string;
+    twitter: string;
+    instagram: string;
+  }>,
+) => {
+  const updatePayload: Record<string, unknown> = {};
 
   if (data.name) updatePayload["name"] = data.name;
   if (data.bio !== undefined) updatePayload["profile.bio"] = data.bio;
