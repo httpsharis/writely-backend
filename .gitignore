@@ -43,3 +43,7 @@ Thumbs.db
 # Testing and Coverage
 coverage/
 .nyc_output/
+
+dist/
+*.js.map
+*.d.ts

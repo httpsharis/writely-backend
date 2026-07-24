@@ -1,15 +1,22 @@
-import { Router } from 'express';
-import { upload } from '../../middleware/uploadMiddleware';
-import { protect } from '../../middleware/authMiddleware';
-import * as uploadController from './uploadController';
+/**
+ * @file uploadRoutes.ts
+ * @desc Secure routing for Cloudinary image uploads.
+ */
+import { Router } from "express";
+import { upload } from "../../middleware/uploadMiddleware";
+import { protect } from "../../middleware/authMiddleware";
+import * as uploadController from "./uploadController";
 
 const router = Router();
 
-// Protect the route so random bots can't upload images
+// Prevent anonymous bots from flooding your Cloudinary storage
 router.use(protect);
 
-// 1. First, it passes through the 'upload' middleware (sends to Cloudinary)
-// 2. Then, it hits the 'uploadController' (returns the URL to the frontend)
-router.post('/', upload.single('image'), uploadController.uploadImage);
+/**
+ * @route POST /api/upload
+ * @desc 1. upload.single('image') -> Streams file directly to Cloudinary
+ * 2. uploadController.uploadImage -> Returns the secure URL
+ */
+router.post("/", upload.single("image"), uploadController.uploadImage);
 
 export default router;

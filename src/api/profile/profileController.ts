@@ -1,54 +1,51 @@
+/**
+ * @file profileController.ts
+ * @desc Handles HTTP requests for public author portfolios and private profile edits.
+ */
 import { Request, Response } from "express";
-import Document from "../document/documentModel";;
+import { z } from "zod";
+import { asyncHandler } from "../../utils/asyncHandler";
+import { AuthRequest } from "../../middleware/authMiddleware";
+import * as profileService from "./profileService";
 
-interface AuthRequest extends Request {
-  user?: any;
-}
+// Validation schema for incoming profile updates
+export const UpdateProfileSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").optional(),
+  bio: z.string().max(500, "Bio cannot exceed 500 characters").optional(),
+  avatarUrl: z.string().url("Invalid avatar URL").optional().or(z.literal("")),
+  website: z.string().url("Invalid website URL").optional().or(z.literal("")),
+  twitter: z.string().optional(),
+  instagram: z.string().optional(),
+});
 
-export const getProfileDashboard = async (req: AuthRequest, res: Response) => {
-  try {
-    const userId = req.user._id; 
+/**
+ * @route GET /api/profile/:username
+ * @desc Fetches the public portfolio for a specific author. (No Auth Required)
+ */
+export const getPublicProfile = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { username } = req.params;
 
-    // 1. Fetch real documents
-    const recentDocuments = await Document.find({ author: userId })
-      .sort({ updatedAt: -1 })
-      .limit(4)
-      .select("title type status chapters wordCount updatedAt");
+    // Pass to service layer to aggregate the data
+    const profileData =
+      await profileService.getPublicProfileByUsername(username);
 
-    // 2. Calculate Total Words and Active Projects
-    const statsAggregation = await Document.aggregate([
-      { $match: { author: userId } },
-      {
-        $group: {
-          _id: null,
-          totalWords: { $sum: "$wordCount" },
-          activeProjects: {
-            $sum: { $cond: [{ $eq: ["$status", "Drafting"] }, 1, 0] } 
-          }
-        }
-      }
-    ]);
+    res.status(200).json(profileData);
+  },
+);
 
-    const totalWords = statsAggregation[0]?.totalWords || 0;
-    const activeProjects = statsAggregation[0]?.activeProjects || 0;
-    
-    // 3. Hardcoded to 0 to bypass the TypeScript error. We will link your Analytics later!
-    const currentStreak = 0;
+/**
+ * @route PUT /api/profile
+ * @desc Updates the authenticated user's profile information.
+ */
+export const updateProfile = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    // Pass the strictly validated req.body and the user's ID to the service
+    const updatedProfile = await profileService.updateUserProfile(
+      req.user!.userId,
+      req.body,
+    );
 
-    res.status(200).json({
-      success: true,
-      data: {
-        stats: { 
-          totalWords, 
-          currentStreak, 
-          activeProjects 
-        },
-        recentDocuments
-      }
-    });
-
-  } catch (error) {
-    console.error("Profile Dashboard Error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
+    res.status(200).json({ profile: updatedProfile });
+  },
+);

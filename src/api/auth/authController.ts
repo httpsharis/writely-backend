@@ -1,210 +1,219 @@
-import { Request, Response, NextFunction } from "express";
+/**
+ * @file authController.ts
+ * @desc Handles HTTP requests for user authentication, registration, and session management.
+ */
+
+import { Request, Response } from "express";
 import { z } from "zod";
 import * as authService from "./authService";
 import * as userService from "../user/userService";
 import { AuthRequest } from "../../middleware/authMiddleware";
 import { cookieConfig } from "../../utils/cookieConfig";
+import { IUser } from "../user/userModel";
+import { asyncHandler } from "../../utils/asyncHandler";
 
-const GoogleLoginSchema = z.object({
+// --- Zod Schemas (Exported so authRoutes.ts can use them in the middleware) ---
+export const GoogleLoginSchema = z.object({
   idToken: z.string().min(1, "ID Token required"),
 });
+export const RegisterSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+export const LoginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+export const UpdateProfileSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").optional(),
+  username: z
+    .string()
+    .min(3, "Username must be at least 3 characters")
+    .optional(),
+  bio: z.string().optional(),
+});
 
-const formatUserResponse = (user: any) => ({
+/**
+ * @desc Formats a raw Mongoose User document into a safe JSON DTO.
+ */
+const formatUserResponse = (user: IUser) => ({
   _id: user._id.toString(),
   name: user.name,
   email: user.email,
+  username: user.username,
+  bio: user.profile?.bio,
+  avatarUrl: user.profile?.avatarUrl,
 });
 
-// ==========================================
-// 1. DEVELOPMENT DUMMY LOGIN
-// ==========================================
-export const devDummyLogin = async (
-  req: Request,
+/**
+ * @desc Standardizes the HTTP response and cookie injection for auth flows.
+ */
+const sendAuthResponse = (
   res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  if (process.env.NODE_ENV !== "development") {
-    res.status(404).json({ error: "Route not found" });
-    return;
-  }
-
-  try {
-    let user = await userService.findUserByEmail("dev@writely.com");
-
-    if (!user) {
-      user = await userService.createUser({
-        name: "Local Dev",
-        email: "dev@writely.com",
-        googleId: "dummy-dev-id",
-      });
-    }
-
-    if (!user) {
-      res.status(500).json({ error: "Failed to create dev user" });
-      return;
-    }
-
-    const [accessToken, refreshToken] = [
-      authService.generateAccessToken(user._id.toString()),
-      authService.generateRefreshToken(user._id.toString()),
-    ];
-
-    await userService.saveRefreshToken(user._id.toString(), refreshToken);
-
-    res
-      .cookie("refreshToken", refreshToken, cookieConfig.refresh())
-      .status(200)
-      .json({
-        message: "Dummy Dev Login successful",
-        accessToken,
-        user: formatUserResponse(user),
-      });
-  } catch (error) {
-    next(error);
-  }
+  statusCode: number,
+  user: IUser,
+  accessToken: string,
+  refreshToken: string,
+  message: string,
+) => {
+  res
+    .cookie("refreshToken", refreshToken, cookieConfig.refresh())
+    .status(statusCode)
+    .json({ message, accessToken, user: formatUserResponse(user) });
 };
 
-// ==========================================
-// 2. MAIN GOOGLE LOGIN
-// ==========================================
-export const googleLogin = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
-    const parsed = GoogleLoginSchema.safeParse(req.body);
+/**
+ * @route POST /api/auth/register
+ * @desc Registers a new user via email and password.
+ */
+export const register = asyncHandler(async (req: Request, res: Response) => {
+  const { email, password, name, username } = req.body;
 
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.issues[0].message });
-      return;
-    }
+  if (await userService.findUserByEmail(email))
+    return res.status(400).json({ error: "User already exists" });
+  if (await userService.findUserByUsername(username))
+    return res.status(400).json({ error: "Username is already taken" });
 
-    const {
-      email,
-      name,
-      sub: googleId,
-    } = await authService.verifyGoogleToken(parsed.data.idToken);
+  const hashedPassword = await authService.hashPassword(password);
+  const user = await userService.createUser({
+    name,
+    email,
+    username,
+    password: hashedPassword,
+  });
 
-    if (!email || !googleId) {
-      res.status(400).json({ error: "Invalid token payload" });
-      return;
-    }
+  if (!user) return res.status(500).json({ error: "Failed to create user" });
 
-    let user = await userService.findUserByEmail(email);
+  const accessToken = authService.generateAccessToken(user._id.toString());
+  const refreshToken = authService.generateRefreshToken(user._id.toString());
+  await userService.saveRefreshToken(user._id.toString(), refreshToken);
 
-    if (!user) {
-      user = await userService.createUser({
-        name: name || "Writely User",
-        email,
-        googleId,
-      });
-    }
+  sendAuthResponse(
+    res,
+    201,
+    user,
+    accessToken,
+    refreshToken,
+    "Registration successful",
+  );
+});
 
-    if (!user) {
-      res.status(500).json({ error: "Failed to create user" });
-      return;
-    }
+/**
+ * @route POST /api/auth/login
+ * @desc Authenticates a user via email and password.
+ */
+export const login = asyncHandler(async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  const user = await userService.findUserByEmailWithPassword(email);
 
-    const [access, refresh] = [
-      authService.generateAccessToken(user._id.toString()),
-      authService.generateRefreshToken(user._id.toString()),
-    ];
-
-    await userService.saveRefreshToken(user._id.toString(), refresh);
-
-    res
-      .cookie("refreshToken", refresh, cookieConfig.refresh())
-      .status(200)
-      .json({
-        message: "Login successful",
-        accessToken: access,
-        user: formatUserResponse(user),
-      });
-  } catch (error) {
-    next(error);
+  if (
+    !user ||
+    !user.password ||
+    !(await authService.comparePasswords(password, user.password))
+  ) {
+    return res.status(401).json({ error: "Invalid credentials" });
   }
-};
 
-// REFRESH TOKEN
-export const refreshToken = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
+  const accessToken = authService.generateAccessToken(user._id.toString());
+  const refreshToken = authService.generateRefreshToken(user._id.toString());
+  await userService.saveRefreshToken(user._id.toString(), refreshToken);
+
+  sendAuthResponse(
+    res,
+    200,
+    user,
+    accessToken,
+    refreshToken,
+    "Login successful",
+  );
+});
+
+/**
+ * @route POST /api/auth/google-login
+ * @desc Authenticates or registers a user via Google OAuth ID Token.
+ */
+export const googleLogin = asyncHandler(async (req: Request, res: Response) => {
+  const payload = await authService.verifyGoogleToken(req.body.idToken);
+  const user = await authService.findOrCreateGoogleUser(payload);
+
+  const accessToken = authService.generateAccessToken(user._id.toString());
+  const refreshToken = authService.generateRefreshToken(user._id.toString());
+  await userService.saveRefreshToken(user._id.toString(), refreshToken);
+
+  sendAuthResponse(
+    res,
+    200,
+    user,
+    accessToken,
+    refreshToken,
+    "Login successful",
+  );
+});
+
+/**
+ * @route POST /api/auth/refresh
+ * @desc Issues a new Access Token using a valid HTTP-only Refresh Token cookie.
+ */
+export const refreshToken = asyncHandler(
+  async (req: Request, res: Response) => {
     const token = req.cookies?.refreshToken;
-    if (!token) {
-      res.status(401).json({ error: "Missing refresh token" });
-      return;
-    }
+    if (!token) return res.status(401).json({ error: "Missing refresh token" });
 
-    const decoded = authService.verifyRefreshToken(token);
+    // SENIOR FIX: Catching token verification failure without breaking asyncHandler flow
+    const decoded = await Promise.resolve()
+      .then(() => authService.verifyRefreshToken(token))
+      .catch(() => null);
+    if (!decoded)
+      return res.status(401).json({ error: "Invalid refresh token" });
 
     const user = await userService.findUserById(decoded.userId);
     if (!user || user.refreshToken !== token) {
-      res
+      return res
         .status(401)
         .json({ error: "Invalid or expired refresh token session" });
-      return;
     }
-    res.status(200).json({
-      accessToken: authService.generateAccessToken(user._id.toString()),
-    });
-  } catch (error) {
-    res.status(401).json({ error: "Invalid refresh token" });
+
+    res
+      .status(200)
+      .json({
+        accessToken: authService.generateAccessToken(user._id.toString()),
+      });
+  },
+);
+
+/**
+ * @route GET /api/auth/me
+ * @desc Fetches the currently authenticated user's profile.
+ */
+export const getCurrentUser = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    if (!req.user?.userId)
+      return res.status(401).json({ error: "Unauthorized" });
+
+    const user = await userService.findUserById(req.user.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    res.status(200).json({ user: formatUserResponse(user) });
+  },
+);
+
+/**
+ * @route POST /api/auth/logout
+ * @desc Clears the refresh token cookie and removes it from the database.
+ */
+export const logout = asyncHandler(async (req: Request, res: Response) => {
+  const token = req.cookies?.refreshToken;
+
+  if (token) {
+    // We don't care if it fails (already expired), we just want to attempt DB cleanup
+    const decoded = await Promise.resolve()
+      .then(() => authService.verifyRefreshToken(token))
+      .catch(() => null);
+    if (decoded) await userService.saveRefreshToken(decoded.userId, "");
   }
-};
 
-// GET CURRENT USER
-export const getCurrentUser = async (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
-    if (!req.user?._id) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-
-    const user = await userService.findUserById(req.user._id);
-
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
-
-    res.status(200).json({
-      user: formatUserResponse(user),
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// LOGOUT
-export const logout = async (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
-    // 1. Remove the refresh token from the database if user is known
-    if (req.user?._id) {
-      await userService.saveRefreshToken(req.user._id.toString(), "");
-    }
-
-    // 2. Clear the HTTP-Only cookie so the browser deletes it
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/", // Must match the path used when setting the cookie!
-    });
-
-    res.status(200).json({ message: "Successfully logged out" });
-  } catch (error) {
-    next(error);
-  }
-};
+  res.clearCookie("refreshToken", cookieConfig.clear());
+  res.status(200).json({ message: "Successfully logged out" });
+});

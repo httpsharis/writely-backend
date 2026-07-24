@@ -1,24 +1,59 @@
+// In: src/api/auth/authRoutes.ts
 import { Router } from 'express';
-import { rateLimit } from 'express-rate-limit';
-import { googleLogin, getCurrentUser, devDummyLogin } from './authController';
+import { 
+  googleLogin, 
+  getCurrentUser, 
+  refreshToken, 
+  logout, 
+  register, 
+  login, 
+} from './authController';
 import { protect } from '../../middleware/authMiddleware';
-import { RequestHandler } from 'express'
+import { authLimiter } from '../../middleware/rateLimitMiddleware';
 
 const router = Router();
 
-// Strict limiter: Only 10 login attempts per 15 minutes per IP
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: { error: 'Too many login attempts, try again later.' }
-});
+/**
+ * @route POST /api/auth/register
+ * @desc Register a new user with email/password
+ * @access Public
+ */
+router.post('/register', authLimiter, register);
 
-// Apply the strict limiter ONLY to the login route
-router.post('/google-login', authLimiter, googleLogin as RequestHandler);
+/**
+ * @route POST /api/auth/login
+ * @desc Login with email/password
+ * @access Public
+ */
+router.post('/login', authLimiter, login);
 
-// Protected route
-router.get('/me', protect as RequestHandler, getCurrentUser);
+/**
+ * @route POST /api/auth/google-login
+ * @desc Login/Register via Google OAuth
+ * @access Public
+ */
+router.post('/google-login', authLimiter, googleLogin);
 
-router.post('/dummy-login', devDummyLogin);
+/**
+ * @route POST /api/auth/refresh
+ * @desc Refresh access token using HTTP-only cookie
+ * @access Public
+ */
+router.post('/refresh', refreshToken);
+
+/**
+ * @route POST /api/auth/logout
+ * @desc Clear HTTP-only cookie and invalidate refresh token
+ * @access Public
+ */
+router.post('/logout', logout);
+
+/**
+ * @route GET /api/auth/me
+ * @desc Get current authenticated user's data
+ * @access Private
+ */
+router.get('/me', protect, getCurrentUser);
+
 
 export default router;

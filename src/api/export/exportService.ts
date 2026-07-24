@@ -1,31 +1,76 @@
-import Document from '../document/documentModel';
-import { NotFoundError } from '../../utils/errors';
+/**
+ * @file exportService.ts
+ * @desc Business logic for compiling, parsing, and formatting novels for export.
+ */
+import Document from "../document/documentModel";
+import { NotFoundError } from "../../utils/errors";
 
-export const compileNovelForExport = async (novelId: string, userId: string) => {
-    // 1. Verify ownership and fetch the main novel document
-    const novel = await Document.findOne({ _id: novelId, owner: userId, type: 'novel', deletedAt: null });
-    if (!novel) throw new NotFoundError('Novel not found or access denied');
+/**
+ * @desc Recursively extracts raw text from TipTap/ProseMirror JSON structures.
+ * Converts paragraph and heading nodes into text with proper line breaks.
+ */
+const extractTextFromTipTap = (node: any): string => {
+  if (!node) return "";
+  if (typeof node === "string") return node; // Fallback for raw strings
+  if (node.type === "text") return node.text || "";
 
-    // 2. Fetch all child chapters, sorted chronologically
-    const chapters = await Document.find({ parentId: novelId, type: 'chapter', deletedAt: null })
-        .sort({ createdAt: 1 })
-        .lean();
+  // Add line breaks after block elements
+  if (node.type === "paragraph" || node.type === "heading") {
+    return (node.content?.map(extractTextFromTipTap).join("") || "") + "\n\n";
+  }
 
-    // 3. Stitch the manuscript together
-    let compiledText = `# ${novel.title}\n\n`;
+  // Traverse nested content arrays
+  if (node.content && Array.isArray(node.content)) {
+    return node.content.map(extractTextFromTipTap).join("");
+  }
 
-    chapters.forEach((chap) => {
-        compiledText += `## ${chap.title}\n\n`;
-        // If content is empty, provide a fallback.
-        compiledText += `${chap.content || '*No content written yet.*'}\n\n`;
-        compiledText += `---\n\n`;
-    });
+  return "";
+};
 
-    // 4. Clean the title to create a safe file name (e.g., "my_epic_fantasy.md")
-    const safeFilename = `${novel.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+export const compileNovelForExport = async (
+  novelId: string,
+  userId: string,
+) => {
+  // 1. Verify ownership and fetch the main novel document
+  const novel = await Document.findOne({
+    _id: novelId,
+    owner: userId,
+    type: "novel",
+    deletedAt: null,
+  }).lean();
 
-    return {
-        filename: safeFilename,
-        content: compiledText
-    };
+  if (!novel) throw new NotFoundError("Novel not found or access denied");
+
+  // 2. Fetch all child chapters
+  // 🟢 SENIOR FIX: Sort by sequence 'order', falling back to 'createdAt'
+  const chapters = await Document.find({
+    parentId: novelId,
+    type: "chapter",
+    deletedAt: null,
+  })
+    .sort({ order: 1, createdAt: 1 })
+    .lean();
+
+  // 3. Stitch the manuscript together
+  let compiledText = `# ${novel.title}\n\n`;
+
+  chapters.forEach((chap) => {
+    compiledText += `## ${chap.title}\n\n`;
+
+    // 🟢 SENIOR FIX: Safely extract text from the TipTap JSON
+    const rawText = chap.content ? extractTextFromTipTap(chap.content) : "";
+
+    compiledText += rawText.trim()
+      ? `${rawText}\n\n`
+      : "*No content written yet.*\n\n";
+    compiledText += `---\n\n`;
+  });
+
+  // 4. Clean the title to create a safe file name (e.g., "my_epic_fantasy.md")
+  const safeFilename = `${novel.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.md`;
+
+  return {
+    filename: safeFilename,
+    content: compiledText,
+  };
 };

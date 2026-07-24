@@ -1,39 +1,47 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+/**
+ * @file authMiddleware.ts
+ * @desc Secures routes by verifying JWT tokens and attaching user data to the request.
+ */
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 
-// Extend the Express Request to include our custom user data
+// Extend Express Request to include custom user data across the app
 export interface AuthRequest extends Request {
-  user?: { 
-    _id: string; 
+  user?: {
+    userId: string;
     name?: string;
     email?: string;
   };
 }
 
-export const protect = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  
-  let token;
+/**
+ * Middleware to protect routes. Extracts Bearer token, verifies it,
+ * and populates req.user. Throws 401 on failure.
+ */
+export const protect = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): void => {
+  let token: string | undefined;
 
-  // Check if the authorization header exists and starts with 'Bearer'
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
+  if (req.headers.authorization?.startsWith("Bearer ")) {
+    token = req.headers.authorization.split(" ")[1];
   }
 
   if (!token) {
-    res.status(401).json({ error: 'Not authorized, no token provided' });
+    res.status(401).json({ error: "Not authorized, no token provided" });
     return;
   }
 
   try {
-    // Verify the token using your secret key
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { _id: string };
-    
-    // Attach the user ID to the request so the controller knows exactly who is making the request
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_ACCESS_SECRET as string,
+    ) as { userId: string };
     req.user = decoded;
-    
-    // Move on to the actual controller
     next();
   } catch (error) {
-    res.status(401).json({ error: 'Not authorized, token failed' });
+    res.status(401).json({ error: "Not authorized, token failed or expired" });
   }
 };

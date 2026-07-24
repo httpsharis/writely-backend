@@ -1,12 +1,23 @@
-import express from "express";
-import { getProfileDashboard } from "../profile/profileController";
+/**
+ * @file profileRoute.ts
+ * @desc Routing for author portfolios and profile management.
+ */
+import { Router } from "express";
+import * as profileController from "./profileController";
 import { protect } from "../../middleware/authMiddleware";
-// Import your auth middleware to protect this route!
-// import { requireAuth } from "../middleware/auth.middleware";
+import { validateRequest } from "../../middleware/validateMiddleware";
 
-const router = express.Router();
+const router = Router();
 
-// Add requireAuth here later to ensure only logged-in users access this
-router.get("/dashboard", protect, getProfileDashboard);
+// 🟢 PUBLIC ROUTE: Anyone on the internet can view an author's portfolio
+router.get("/:username", profileController.getPublicProfile);
+
+// 🔒 PROTECTED ROUTE: Only the logged-in author can edit their profile
+router.put(
+  "/",
+  protect,
+  validateRequest(profileController.UpdateProfileSchema),
+  profileController.updateProfile,
+);
 
 export default router;

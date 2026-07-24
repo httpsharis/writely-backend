@@ -1,193 +1,154 @@
-import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
-import mongoose from 'mongoose';
-import * as documentService from './documentService';
-import { AuthRequest } from '../../middleware/authMiddleware';
+/**
+ * @file documentController.ts
+ * @desc Handles incoming HTTP requests for the Document domain.
+ */
 
-// Schema for updating a document (auto-save from the editor)
-const UpdateDocumentSchema = z.object({
-    title: z.string().optional(),
-    content: z.any().optional(), // Accepts TipTap JSON
-    status: z.enum(['draft', 'published', 'archived']).optional(),
-    coverImage: z.string().optional(),
-    icon: z.string().optional(),
-    parentId: z.string().nullable().optional()
+import { Request, Response } from "express";
+import { z } from "zod";
+import * as documentService from "./documentService";
+import { AuthRequest } from "../../middleware/authMiddleware";
+import { asyncHandler } from "../../utils/asyncHandler";
+
+// --- Zod Schemas for Middleware ---
+export const CreateDocumentSchema = z.object({
+  title: z.string().min(1, "Title is required").optional().default("Untitled"),
+  type: z.enum(["novel", "chapter"]).optional().default("novel"),
+  parentId: z.string().nullable().optional(),
+  coverImage: z.string().url().optional(),
+  synopsis: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  targetWords: z.number().optional(),
 });
 
-export const createDocument = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const userId = req.user?.userId;
-        
-        // 1. EXTRACT ALL FIELDS FROM req.body
-        const { title, parentId, type, coverImage, synopsis, tags, targetWords } = req.body;
+export const UpdateDocumentSchema = z.object({
+  title: z.string().optional(),
+  content: z.any().optional(), // TipTap JSON
+  status: z.enum(["draft", "published", "archived"]).optional(),
+  coverImage: z.string().optional(),
+  icon: z.string().optional(),
+  parentId: z.string().nullable().optional(),
+});
 
-        if (!userId) {
-            res.status(401).json({ error: 'Unauthorized' });
-            return;
-        }
+/**
+ * @route POST /api/documents
+ */
+export const createDocument = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const document = await documentService.createDocument(
+      req.user!.userId,
+      req.body,
+    );
+    res.status(201).json({ document });
+  },
+);
 
-        const docType = type || 'novel';
-        
-        // 2. PASS ALL FIELDS TO THE SERVICE
-        const document = await documentService.createDocument(
-            userId, 
-            title, 
-            parentId, 
-            docType, 
-            coverImage, 
-            synopsis, 
-            tags, 
-            targetWords
-        );
+/**
+ * @route GET /api/documents
+ */
+export const getMyDocuments = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const documents = await documentService.getUserDocuments(req.user!.userId);
+    res.status(200).json({ documents });
+  },
+);
 
-        res.status(201).json({ document });
-    } catch (error) {
-        next(error);
+/**
+ * @route GET /api/documents/:id
+ */
+export const getDocumentById = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const document = await documentService.getDocumentById(
+      req.params.id,
+      req.user!.userId,
+    );
+    if (!document) return res.status(404).json({ error: "Document not found" });
+    res.status(200).json({ document });
+  },
+);
+
+/**
+ * @route PUT /api/documents/:id
+ */
+export const updateDocument = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const updatedDocument = await documentService.updateDocument(
+      req.params.id,
+      req.user!.userId,
+      req.body,
+    );
+    if (!updatedDocument)
+      return res.status(404).json({ error: "Document not found" });
+    res.status(200).json({ document: updatedDocument });
+  },
+);
+
+/**
+ * @route DELETE /api/documents/:id
+ */
+export const deleteDocument = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const deletedDoc = await documentService.softDeleteDocument(
+      req.params.id,
+      req.user!.userId,
+    );
+    if (!deletedDoc)
+      return res.status(404).json({ error: "Document not found" });
+    res.status(200).json({ message: "Document moved to trash" });
+  },
+);
+
+/**
+ * @route GET /api/documents/public/:slug
+ */
+export const getPublicDocument = asyncHandler(
+  async (req: Request, res: Response) => {
+    const document = await documentService.getPublishedDocumentBySlug(
+      req.params.slug,
+    );
+    if (!document)
+      return res
+        .status(404)
+        .json({ error: "Document not found or is private" });
+    res.status(200).json({ document });
+  },
+);
+
+/**
+ * @route GET /api/documents/trash
+ */
+export const getTrash = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const trashedDocs = await documentService.getTrashedDocuments(
+      req.user!.userId,
+    );
+    res.status(200).json(trashedDocs);
+  },
+);
+
+/**
+ * @route PATCH /api/documents/trash/:id/restore
+ */
+export const restoreFromTrash = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const restoredDoc = await documentService.restoreDocument(
+      req.params.id,
+      req.user!.userId,
+    );
+    res.status(200).json(restoredDoc);
+  },
+);
+
+/**
+ * @route POST /api/documents/public/:slug/view
+ * @desc Records a valid "read" (view) after the frontend verifies the 10-second rule.
+ */
+export const recordView = asyncHandler(async (req: Request, res: Response) => {
+    const doc = await documentService.incrementViewCount(req.params.slug);
+    
+    if (!doc) {
+        res.status(404).json({ error: 'Document not found or private' });
+        return;
     }
-};
 
-export const getMyDocuments = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const userId = req.user?.userId;
-        if (!userId) {
-            res.status(401).json({ error: 'Unauthorized' });
-            return;
-        }
-
-        const documents = await documentService.getUserDocuments(userId);
-        res.status(200).json({ documents });
-    } catch (error) {
-        next(error);
-    }
-};
-
-export const getDocumentById = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const userId = req.user?.userId;
-        // Explicitly cast the route parameter to string
-        const id = req.params.id as string;
-
-        if (!userId) {
-            res.status(401).json({ error: 'Unauthorized' });
-            return;
-        }
-
-        const document = await documentService.getDocumentById(id, userId);
-        if (!document) {
-            res.status(404).json({ error: 'Document not found' });
-            return;
-        }
-
-        res.status(200).json({ document });
-    } catch (error) {
-        next(error);
-    }
-};
-
-export const updateDocument = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const userId = req.user?.userId;
-        // Explicitly cast the route parameter to string
-        const id = req.params.id as string;
-
-        if (!userId) {
-            res.status(401).json({ error: 'Unauthorized' });
-            return;
-        }
-
-        const parsedData = UpdateDocumentSchema.safeParse(req.body);
-        if (!parsedData.success) {
-            // Zod uses .issues, not .errors
-            res.status(400).json({ error: parsedData.error.issues[0].message });
-            return;
-        }
-
-        // Convert string parentId to Mongoose ObjectId if present
-        const updatePayload = {
-            ...parsedData.data,
-            parentId: parsedData.data.parentId
-                ? new mongoose.Types.ObjectId(parsedData.data.parentId)
-                : parsedData.data.parentId === null
-                    ? null
-                    : undefined
-        };
-
-        const updatedDocument = await documentService.updateDocument(id, userId, updatePayload as any);
-        if (!updatedDocument) {
-            res.status(404).json({ error: 'Document not found' });
-            return;
-        }
-
-        res.status(200).json({ document: updatedDocument });
-    } catch (error) {
-        next(error);
-    }
-};
-
-export const deleteDocument = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const userId = req.user?.userId;
-        // Explicitly cast the route parameter to string
-        const id = req.params.id as string;
-
-        if (!userId) {
-            res.status(401).json({ error: 'Unauthorized' });
-            return;
-        }
-
-        const deletedDoc = await documentService.softDeleteDocument(id, userId);
-        if (!deletedDoc) {
-            res.status(404).json({ error: 'Document not found' });
-            return;
-        }
-
-        res.status(200).json({ message: 'Document moved to trash' });
-    } catch (error) {
-        next(error);
-    }
-};
-
-// --- PUBLIC ROUTE FOR READERS ---
-export const getPublicDocument = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        // Explicitly cast the route parameter to string
-        const slug = req.params.slug as string;
-
-        const document = await documentService.getPublishedDocumentBySlug(slug);
-
-        // If it doesn't exist, OR if it's set to 'draft', this returns 404
-        if (!document) {
-            res.status(404).json({ error: 'Document not found or is private' });
-            return;
-        }
-
-        res.status(200).json({ document });
-    } catch (error) {
-        next(error);
-    }
-};
-
-export const getTrash = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const userId = req.user?.userId;
-        if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
-
-        const trashedDocs = await documentService.getTrashedDocuments(userId);
-        res.status(200).json(trashedDocs);
-    } catch (error) {
-        next(error);
-    }
-};
-
-export const restoreFromTrash = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const userId = req.user?.userId;
-        const { id } = req.params;
-        if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
-
-        const restoredDoc = await documentService.restoreDocument(id, userId);
-        res.status(200).json(restoredDoc);
-    } catch (error) {
-        next(error);
-    }
-};
+    res.status(200).json({ success: true, viewsCount: doc.viewsCount });
+});
