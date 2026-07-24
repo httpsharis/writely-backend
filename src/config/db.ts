@@ -20,7 +20,7 @@ interface MongooseCache {
 }
 
 declare global {
-  var mongooseCache: MongooseCache;
+  var mongooseCache: MongooseCache | undefined;
 }
 
 let cached = global.mongooseCache;
