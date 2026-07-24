@@ -17,14 +17,29 @@ const UpdateDocumentSchema = z.object({
 export const createDocument = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
         const userId = req.user?.userId;
-        const { title, parentId } = req.body;
+        
+        // 1. EXTRACT ALL FIELDS FROM req.body
+        const { title, parentId, type, coverImage, synopsis, tags, targetWords } = req.body;
 
         if (!userId) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
         }
 
-        const document = await documentService.createDocument(userId, title, parentId);
+        const docType = type || 'novel';
+        
+        // 2. PASS ALL FIELDS TO THE SERVICE
+        const document = await documentService.createDocument(
+            userId, 
+            title, 
+            parentId, 
+            docType, 
+            coverImage, 
+            synopsis, 
+            tags, 
+            targetWords
+        );
+
         res.status(201).json({ document });
     } catch (error) {
         next(error);

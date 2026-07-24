@@ -10,9 +10,12 @@ export interface IDocument extends Document {
   parentId: mongoose.Types.ObjectId | null;
   order: number;
   synopsis: string;
+  tags: string[];
   genre: string[];
-  targetWordCount?: number;
+  targetWords?: number;
   coverImage?: string;
+  wordCount?: number;
+  chapters?: IDocument[];
   viewsCount: number;
   likesCount: number;
   icon?: string;
@@ -40,8 +43,12 @@ const DocumentSchema = new Schema<IDocument>(
 
     synopsis: { type: String },
     genre: [{ type: String }],
-    targetWordCount: { type: Number },
+    tags: [{ type: String }],
+    wordCount: { type: Number },
+    targetWords: { type: Number },
     coverImage: { type: String },
+
+    icon: { type: String },
 
     viewsCount: { type: Number, default: 0 },
     likesCount: { type: Number, default: 0 },

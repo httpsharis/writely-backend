@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as characterService from './characterService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { ICharacter } from './characterModel';
 
 const CharacterSchema = z.object({
     name: z.string().min(1, "Character name is required"),
@@ -10,14 +11,19 @@ const CharacterSchema = z.object({
     traits: z.array(z.string()).optional(),
     aliases: z.array(z.string()).optional(),
     status: z.enum(['alive', 'dead', 'unknown']).optional(),
-    avatarUrl: z.string().optional()
+    avatarUrl: z.string().optional(),
+
+    relationships: z.array(z.object({
+        targetCharacterId: z.string(),
+        relationshipType: z.string(),
+    })).optional()
 });
 
 export const createCharacter = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
         const userId = req.user?.userId;
         const { novelId } = req.params;
-        
+
         if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
 
         const parsedData = CharacterSchema.safeParse(req.body);
@@ -26,7 +32,16 @@ export const createCharacter = async (req: AuthRequest, res: Response, next: Nex
             return;
         }
 
-        const character = await characterService.createCharacter(novelId, userId, parsedData.data);
+        // 🔴 THE FIX: Convert "global" to null so Mongoose doesn't crash
+        const finalNovelId = novelId === "global" ? null : novelId;
+
+        // Note: 'as any' is used here just in case your characterService strictly expects a string.
+        const character = await characterService.createCharacter(
+            finalNovelId as any, 
+            userId, 
+            parsedData.data as unknown as Partial<ICharacter>
+        );
+        
         res.status(201).json({ character });
     } catch (error) {
         next(error);
@@ -37,10 +52,14 @@ export const getNovelCharacters = async (req: AuthRequest, res: Response, next: 
     try {
         const userId = req.user?.userId;
         const { novelId } = req.params;
-        
+
         if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
 
-        const characters = await characterService.getCharactersByNovel(novelId, userId);
+        // 🔴 THE FIX: Also apply it here so your dashboard can successfully FETCH global characters
+        const finalNovelId = novelId === "global" ? null : novelId;
+
+        const characters = await characterService.getCharactersByNovel(finalNovelId as any, userId);
+        
         res.status(200).json({ characters });
     } catch (error) {
         next(error);
@@ -60,7 +79,7 @@ export const updateCharacter = async (req: AuthRequest, res: Response, next: Nex
             return;
         }
 
-        const updatedCharacter = await characterService.updateCharacter(characterId, userId, parsedData.data);
+        const updatedCharacter = await characterService.updateCharacter(characterId, userId, parsedData.data as unknown as Partial<ICharacter>);
         res.status(200).json({ character: updatedCharacter });
     } catch (error) {
         next(error);
@@ -75,12 +94,12 @@ export const deleteCharacter = async (req: AuthRequest, res: Response, next: Nex
         if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
 
         const isDeleted = await characterService.deleteCharacter(characterId, userId);
-        
+
         if (!isDeleted) {
             res.status(404).json({ error: 'Character not found' });
             return;
         }
-        
+
         res.status(204).send();
     } catch (error) {
         next(error);

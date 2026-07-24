@@ -12,4 +12,7 @@ router.post('/snapshot', analyticsController.recordSnapshot);
 // GET /api/analytics/dashboard -> Called when the user logs in
 router.get('/dashboard', analyticsController.getDashboardAnalytics);
 
+router.post('/goals', analyticsController.createGoal);
+router.get('/goals', analyticsController.getGoals);
+
 export default router;

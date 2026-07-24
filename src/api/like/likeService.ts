@@ -8,24 +8,24 @@ export const toggleLike = async (documentId: string, userId: string): Promise<{ 
     if (existingLike) {
         // 2a. If they did, REMOVE the like and DECREMENT the document's counter
         await Like.findByIdAndDelete(existingLike._id);
-        
+
         const updatedDoc = await Document.findByIdAndUpdate(
             documentId,
             { $inc: { likesCount: -1 } },
             { new: true }
         );
-        
+
         return { isLiked: false, likesCount: updatedDoc?.likesCount || 0 };
     } else {
         // 2b. If they didn't, CREATE the like and INCREMENT the document's counter
         await Like.create({ documentId, userId });
-        
+
         const updatedDoc = await Document.findByIdAndUpdate(
             documentId,
             { $inc: { likesCount: 1 } },
             { new: true }
         );
-        
+
         return { isLiked: true, likesCount: updatedDoc?.likesCount || 0 };
     }
 };
@@ -33,5 +33,5 @@ export const toggleLike = async (documentId: string, userId: string): Promise<{ 
 export const checkUserLiked = async (documentId: string, userId: string): Promise<boolean> => {
     // This allows the frontend to know if it should paint the heart icon red or gray on page load
     const like = await Like.findOne({ documentId, userId });
-    return !!like; 
+    return !!like;
 };

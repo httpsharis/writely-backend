@@ -10,12 +10,28 @@ const generateSlug = (title: string): string => {
     return `${baseSlug || 'doc'}-${randomString}`;
 };
 
-export const createDocument = async (ownerId: string, title: string = 'Untitled Document', parentId: string | null = null): Promise<IDocument> => {
+export const createDocument = async (
+    ownerId: string,
+    title: string = 'Untitled Document',
+    parentId: string | null = null,
+    type: 'novel' | 'chapter' = 'novel',
+    // Add the missing optional fields here
+    coverImage?: string,
+    synopsis?: string,
+    tags?: string[],
+    targetWords?: number
+): Promise<IDocument> => {
     return await Document.create({
         title,
         slug: generateSlug(title),
         owner: ownerId,
-        parentId
+        parentId,
+        type,
+        // Ensure they are passed into Mongoose
+        coverImage,
+        synopsis,
+        tags,
+        targetWords
     });
 };
 
@@ -26,13 +42,33 @@ export const getUserDocuments = async (ownerId: string): Promise<IDocument[]> =>
         .sort({ updatedAt: -1 });
 };
 
-export const getDocumentById = async (docId: string, ownerId: string): Promise<IDocument | null> => {
+export const getDocumentById = async (docId: string, ownerId: string) => {
     const isId = mongoose.Types.ObjectId.isValid(docId);
-    return await Document.findOne({
+    
+    // 1. Fetch the parent document (The Novel)
+    // We use .lean() to convert it from a strict Mongoose document into a standard JS object 
+    // so we can safely attach the children array to it.
+    const document = await Document.findOne({
         ...(isId ? { _id: docId } : { slug: docId }),
         owner: ownerId,
         deletedAt: null
-    });
+    }).lean();
+
+    if (!document) return null;
+
+    // 2. Fetch all child documents (The Chapters) associated with this Novel
+    const fetchedChapters = await Document.find({
+        parentId: document._id,
+        owner: ownerId,
+        deletedAt: null
+    })
+    .sort({ createdAt: 1 }) 
+    .lean() as IDocument[];
+
+    // 3. Attach the chapters to the parent document payload
+    document.chapters = fetchedChapters;
+
+    return document;
 };
 
 export const getPublishedDocumentBySlug = async (slug: string): Promise<IDocument | null> => {

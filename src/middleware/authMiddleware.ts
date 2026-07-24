@@ -3,10 +3,15 @@ import jwt from 'jsonwebtoken';
 
 // Extend the Express Request to include our custom user data
 export interface AuthRequest extends Request {
-  user?: { userId: string };
+  user?: { 
+    _id: string; 
+    name?: string;
+    email?: string;
+  };
 }
 
 export const protect = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  
   let token;
 
   // Check if the authorization header exists and starts with 'Bearer'
@@ -21,7 +26,7 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction): vo
 
   try {
     // Verify the token using your secret key
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { userId: string };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { _id: string };
     
     // Attach the user ID to the request so the controller knows exactly who is making the request
     req.user = decoded;

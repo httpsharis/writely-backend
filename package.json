@@ -4,7 +4,7 @@
   "description": "A clean, feature-based Express & TypeScript boilerplate.",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch src/server.ts --max-old-space-size=1024",
     "build": "tsc",
     "start": "node dist/server.js"
   },
@@ -19,6 +19,7 @@
   "dependencies": {
     "cloudinary": "^2.10.0",
     "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",
     "dotenv": "^17.4.2",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@types/compression": "^1.8.1",
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "4.17.21",
     "@types/helmet": "^0.0.48",
@@ -45,5 +47,8 @@
     "@types/multer": "^2.1.0",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3"
-  }
+  },
+  "onlyBuiltDependencies": [
+    "esbuild"
+  ]
 }

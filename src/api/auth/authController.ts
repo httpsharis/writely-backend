@@ -1,133 +1,210 @@
-import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
-import * as authService from './authService';
-import * as userService from '../user/userService';
-import { AuthRequest } from '../../middleware/authMiddleware';
+import { Request, Response, NextFunction } from "express";
+import { z } from "zod";
+import * as authService from "./authService";
+import * as userService from "../user/userService";
+import { AuthRequest } from "../../middleware/authMiddleware";
+import { cookieConfig } from "../../utils/cookieConfig";
 
 const GoogleLoginSchema = z.object({
-    idToken: z.string().min(1, 'ID Token is required'),
+  idToken: z.string().min(1, "ID Token required"),
 });
 
-// TEMPORARY ROUTE FOR POSTMAN TESTING ONLY
-export const postmanTestLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        // Find any user in the database, or create a fake one if DB is empty
-        let user = await userService.findUserByEmail('test@writely.com');
-        if (!user) {
-            user = await userService.createUser({
-                name: 'Postman Tester',
-                email: 'test@writely.com',
-                googleId: 'fake-google-id-123'
-            });
-        }
+const formatUserResponse = (user: any) => ({
+  _id: user._id.toString(),
+  name: user.name,
+  email: user.email,
+});
 
-        const accessToken = authService.generateAccessToken(user._id.toString());
+// ==========================================
+// 1. DEVELOPMENT DUMMY LOGIN
+// ==========================================
+export const devDummyLogin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  if (process.env.NODE_ENV !== "development") {
+    res.status(404).json({ error: "Route not found" });
+    return;
+  }
 
-        res.status(200).json({ 
-            message: 'Bypass login successful', 
-            accessToken,
-            user: { id: user._id, name: user.name, email: user.email } 
-        });
-    } catch (error) {
-        next(error);
+  try {
+    let user = await userService.findUserByEmail("dev@writely.com");
+
+    if (!user) {
+      user = await userService.createUser({
+        name: "Local Dev",
+        email: "dev@writely.com",
+        googleId: "dummy-dev-id",
+      });
     }
-};
-export const googleLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const parsedData = GoogleLoginSchema.safeParse(req.body);
-        if (!parsedData.success) {
-            // Zod uses .issues, not .errors
-            res.status(400).json({ error: parsedData.error.issues[0].message });
-            return;
-        }
 
-        const payload = await authService.verifyGoogleToken(parsedData.data.idToken);
-        const { email, name, sub: googleId } = payload;
-
-        // Ensure email and googleId exist before querying the database
-        if (!email || !googleId) {
-            res.status(400).json({ error: 'Invalid token payload' });
-            return;
-        }
-
-        let user = await userService.findUserByEmail(email);
-
-        if (!user) {
-            user = await userService.createUser({
-                name: name || 'Writely User',
-                email,
-                googleId
-            });
-        }
-
-        // Generate BOTH tokens
-        // Used .toString() instead of 'as string'
-        const accessToken = authService.generateAccessToken(user._id.toString());
-        const refreshToken = authService.generateRefreshToken(user._id.toString());
-
-        // Save the refresh token to the database
-        await userService.saveRefreshToken(user._id.toString(), refreshToken);
-
-        res.status(200).json({ 
-            message: 'Login successful', 
-            accessToken,
-            refreshToken,
-            user: { id: user._id, name: user.name, email: user.email } 
-        });
-
-    } catch (error) {
-        next(error);
+    if (!user) {
+      res.status(500).json({ error: "Failed to create dev user" });
+      return;
     }
+
+    const [accessToken, refreshToken] = [
+      authService.generateAccessToken(user._id.toString()),
+      authService.generateRefreshToken(user._id.toString()),
+    ];
+
+    await userService.saveRefreshToken(user._id.toString(), refreshToken);
+
+    res
+      .cookie("refreshToken", refreshToken, cookieConfig.refresh())
+      .status(200)
+      .json({
+        message: "Dummy Dev Login successful",
+        accessToken,
+        user: formatUserResponse(user),
+      });
+  } catch (error) {
+    next(error);
+  }
 };
 
-// The endpoint to get a fresh access token
-export const refreshToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const { token } = req.body;
+// ==========================================
+// 2. MAIN GOOGLE LOGIN
+// ==========================================
+export const googleLogin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const parsed = GoogleLoginSchema.safeParse(req.body);
 
-        if (!token) {
-            res.status(400).json({ error: 'Refresh token is required' });
-            return;
-        }
-
-        // 1. Check if the token is mathematically valid
-        const decoded = authService.verifyRefreshToken(token);
-
-        // 2. Look up the user
-        const user = await userService.findUserById(decoded.userId);
-        if (!user || user.refreshToken !== token) {
-            res.status(401).json({ error: 'Invalid or expired refresh token' });
-            return;
-        }
-
-        // 3. Generate a brand new access token
-        // FIXED: Used .toString() instead of 'as string'
-        const newAccessToken = authService.generateAccessToken(user._id.toString());
-
-        res.status(200).json({ accessToken: newAccessToken });
-    } catch (error) {
-        res.status(401).json({ error: 'Invalid refresh token' });
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
+      return;
     }
+
+    const {
+      email,
+      name,
+      sub: googleId,
+    } = await authService.verifyGoogleToken(parsed.data.idToken);
+
+    if (!email || !googleId) {
+      res.status(400).json({ error: "Invalid token payload" });
+      return;
+    }
+
+    let user = await userService.findUserByEmail(email);
+
+    if (!user) {
+      user = await userService.createUser({
+        name: name || "Writely User",
+        email,
+        googleId,
+      });
+    }
+
+    if (!user) {
+      res.status(500).json({ error: "Failed to create user" });
+      return;
+    }
+
+    const [access, refresh] = [
+      authService.generateAccessToken(user._id.toString()),
+      authService.generateRefreshToken(user._id.toString()),
+    ];
+
+    await userService.saveRefreshToken(user._id.toString(), refresh);
+
+    res
+      .cookie("refreshToken", refresh, cookieConfig.refresh())
+      .status(200)
+      .json({
+        message: "Login successful",
+        accessToken: access,
+        user: formatUserResponse(user),
+      });
+  } catch (error) {
+    next(error);
+  }
 };
 
-// FIXED: Renamed back to getCurrentUser to match authRoute.ts
-export const getCurrentUser = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const userId = req.user?.userId;
-        if (!userId) {
-            res.status(401).json({ error: 'Unauthorized' });
-            return;
-        }
-
-        const user = await userService.findUserById(userId);
-
-        if (!user) {
-            res.status(404).json({ error: 'User not found' });
-            return;
-        }
-
-        res.status(200).json({ user });
-    } catch (error) {
-        next(error);
+// REFRESH TOKEN
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      res.status(401).json({ error: "Missing refresh token" });
+      return;
     }
+
+    const decoded = authService.verifyRefreshToken(token);
+
+    const user = await userService.findUserById(decoded.userId);
+    if (!user || user.refreshToken !== token) {
+      res
+        .status(401)
+        .json({ error: "Invalid or expired refresh token session" });
+      return;
+    }
+    res.status(200).json({
+      accessToken: authService.generateAccessToken(user._id.toString()),
+    });
+  } catch (error) {
+    res.status(401).json({ error: "Invalid refresh token" });
+  }
+};
+
+// GET CURRENT USER
+export const getCurrentUser = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    if (!req.user?._id) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const user = await userService.findUserById(req.user._id);
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    res.status(200).json({
+      user: formatUserResponse(user),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// LOGOUT
+export const logout = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // 1. Remove the refresh token from the database if user is known
+    if (req.user?._id) {
+      await userService.saveRefreshToken(req.user._id.toString(), "");
+    }
+
+    // 2. Clear the HTTP-Only cookie so the browser deletes it
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/", // Must match the path used when setting the cookie!
+    });
+
+    res.status(200).json({ message: "Successfully logged out" });
+  } catch (error) {
+    next(error);
+  }
 };

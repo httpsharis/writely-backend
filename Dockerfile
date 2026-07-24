@@ -1,8 +1,9 @@
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
-# We use npm install here so it works universally inside the container
-RUN npm install
+# Install pnpm globally inside the container
+RUN npm install -g pnpm
+RUN pnpm install
 COPY . .
 EXPOSE 4000
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "dev"]
