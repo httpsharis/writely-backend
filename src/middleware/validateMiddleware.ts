@@ -1,18 +1,25 @@
+/**
+ * @file validateMiddleware.ts
+ * @desc Intercepts incoming requests and validates the payload against a Zod schema.
+ * Rejects bad data with a 400 error before it ever touches the controller.
+ */
 import { Request, Response, NextFunction } from "express";
 import { z, ZodError } from "zod";
 
 /**
- * @desc Validates the request body against a Zod schema. 
- * Replaces req.body with the sanitized/stripped data.
+ * @param {z.ZodSchema} schema - The Zod schema to test req.body against.
+ * @returns Express Middleware
  */
-export const validateRequest = (schema: z.ZodSchema) => 
+export const validateRequest =
+  (schema: z.ZodSchema) =>
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      // parseAsync strips out any malicious extra fields not in the schema
+      // parseAsync strips unapproved fields, protecting against NoSQL injection
       req.body = await schema.parseAsync(req.body);
       next();
     } catch (error) {
       if (error instanceof ZodError) {
+        // Send a clean, readable error message back to the frontend
         res.status(400).json({ error: error.issues[0].message });
         return;
       }

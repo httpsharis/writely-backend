@@ -1,35 +1,33 @@
-import { Response, NextFunction } from 'express';
-import { AuthRequest } from '../../middleware/authMiddleware';
-import Document from '../document/documentModel';
+/**
+ * @file searchController.ts
+ * @desc Handles incoming HTTP requests for global application search.
+ */
+import { Response } from "express";
+import { AuthRequest } from "../../middleware/authMiddleware";
+import { asyncHandler } from "../../utils/asyncHandler";
+import * as searchService from "./searchService";
 
-export const searchDocuments = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const userId = req.user?.userId;
-        const searchTerm = req.query.q as string;
+/**
+ * @route GET /api/search?q=your_term
+ * @desc Performs a global omni-search across documents, characters, and notes.
+ */
+export const searchDocuments = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const searchTerm = req.query.q as string;
 
-        if (!userId) {
-            res.status(401).json({ error: 'Unauthorized' });
-            return;
-        }
-
-        if (!searchTerm) {
-            res.status(200).json([]);
-            return;
-        }
-
-        // This text pattern ignores uppercase and lowercase letters.
-        const searchPattern = new RegExp(searchTerm, 'i');
-
-        const results = await Document.find({
-            owner: userId,
-            title: searchPattern
-        })
-        .select('title type slug updatedAt')
-        .limit(10)
-        .lean();
-
-        res.status(200).json(results);
-    } catch (error) {
-        next(error);
+    // If the user hasn't typed anything yet, return an empty omni-search structure
+    if (!searchTerm || searchTerm.trim().length === 0) {
+      res
+        .status(200)
+        .json({ documents: [], characters: [], notes: [], totalResults: 0 });
+      return;
     }
-};
+
+    const results = await searchService.executeOmniSearch(
+      req.user!.userId,
+      searchTerm,
+    );
+
+    res.status(200).json(results);
+  },
+);

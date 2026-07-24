@@ -1,18 +1,28 @@
-import { Router } from 'express';
-import * as analyticsController from './analyticsController';
-import { protect } from '../../middleware/authMiddleware';
+import { Router } from "express";
+import * as analyticsController from "./analyticsController";
+import * as goalController from "./goalController";
+import { protect } from "../../middleware/authMiddleware";
+import { validateRequest } from "../../middleware/validateMiddleware";
 
 const router = Router();
 
+// Require JWT for all analytics and goals
 router.use(protect);
 
-// POST /api/analytics/snapshot -> Triggered by frontend auto-save loop
-router.post('/snapshot', analyticsController.recordSnapshot);
+// --- TELEMETRY & STATS ---
+router.post(
+  "/snapshot",
+  validateRequest(analyticsController.SnapshotSchema),
+  analyticsController.recordSnapshot,
+);
+router.get("/dashboard", analyticsController.getDashboardAnalytics);
 
-// GET /api/analytics/dashboard -> Called when the user logs in
-router.get('/dashboard', analyticsController.getDashboardAnalytics);
-
-router.post('/goals', analyticsController.createGoal);
-router.get('/goals', analyticsController.getGoals);
+// --- WRITING GOALS ---
+router.post(
+  "/goals",
+  validateRequest(goalController.GoalSchema),
+  goalController.createGoal,
+);
+router.get("/goals", goalController.getGoals);
 
 export default router;

@@ -1,18 +1,26 @@
-import { Router } from 'express';
-import * as characterController from './characterController';
-import { protect } from '../../middleware/authMiddleware';
+import { Router } from "express";
+import * as characterController from "./characterController";
+import { protect } from "../../middleware/authMiddleware";
+import { validateRequest } from "../../middleware/validateMiddleware";
 
 const router = Router();
 
-// Protect all world-building routes
-router.use(protect);
+router.use(protect); // Require JWT for all character endpoints
 
-// Routes tied directly to the Novel
-router.post('/novel/:novelId', characterController.createCharacter);
-router.get('/novel/:novelId', characterController.getNovelCharacters);
+// Novel/Global Routes
+router.post(
+  "/novel/:novelId",
+  validateRequest(characterController.CharacterSchema),
+  characterController.createCharacter,
+);
+router.get("/novel/:novelId", characterController.getNovelCharacters);
 
-// Routes tied to a specific Character
-router.put('/:characterId', characterController.updateCharacter);
-router.delete('/:characterId', characterController.deleteCharacter);
+// Specific Character Routes
+router.put(
+  "/:characterId",
+  validateRequest(characterController.CharacterSchema.partial()),
+  characterController.updateCharacter,
+);
+router.delete("/:characterId", characterController.deleteCharacter);
 
 export default router;

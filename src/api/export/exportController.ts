@@ -1,26 +1,28 @@
-import { Response, NextFunction } from 'express';
-import * as exportService from './exportService';
-import { AuthRequest } from '../../middleware/authMiddleware';
+/**
+ * @file exportController.ts
+ * @desc Handles HTTP requests for exporting novels and manuscripts.
+ */
+import { Response } from "express";
+import { AuthRequest } from "../../middleware/authMiddleware";
+import { asyncHandler } from "../../utils/asyncHandler";
+import * as exportService from "./exportService";
 
-export const exportNovel = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const userId = req.user?.userId;
-        const { novelId } = req.params;
+/**
+ * @route GET /api/export/novel/:novelId
+ * @desc Compiles a novel and its chapters into a downloadable Markdown file.
+ */
+export const exportNovel = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { filename, content } = await exportService.compileNovelForExport(
+      req.params.novelId,
+      req.user!.userId,
+    );
 
-        if (!userId) { 
-            res.status(401).json({ error: 'Unauthorized' }); 
-            return; 
-        }
+    // Tell the browser to download this response as a file
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8"); // Added UTF-8 for smart quotes/em-dashes
 
-        const { filename, content } = await exportService.compileNovelForExport(novelId, userId);
-
-        // Tell the browser to download this response as a file
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.setHeader('Content-Type', 'text/markdown');
-        
-        // Send the raw compiled text
-        res.status(200).send(content);
-    } catch (error) {
-        next(error);
-    }
-};
+    // Send the raw compiled text
+    res.status(200).send(content);
+  },
+);

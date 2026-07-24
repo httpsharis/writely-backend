@@ -1,26 +1,40 @@
-import { Router } from 'express';
-import * as documentController from './documentController';
-import { protect } from '../../middleware/authMiddleware';
+import { Router } from "express";
+import * as documentController from "./documentController";
+import { protect } from "../../middleware/authMiddleware";
+import { validateRequest } from "../../middleware/validateMiddleware";
 
 const router = Router();
 
-// --- PUBLIC ROUTES (No auth required) ---
-router.get('/public/:slug', documentController.getPublicDocument);
+// --- PUBLIC ROUTES ---
+router.get("/public/:slug", documentController.getPublicDocument);
 
-// --- PROTECTED ROUTES (Requires valid JWT) ---
-router.use(protect); 
+// --- PROTECTED ROUTES ---
+router.use(protect);
 
 // Dashboard & Creation
-router.post('/', documentController.createDocument);
-router.get('/', documentController.getMyDocuments);
+// 🟢 SENIOR FIX: Catch bad data before it hits the controller
+router.post(
+  "/",
+  validateRequest(documentController.CreateDocumentSchema),
+  documentController.createDocument,
+);
+router.get("/", documentController.getMyDocuments);
 
-// TRASH ROUTES (Must be placed BEFORE /:id wildcards)
-router.get('/trash', documentController.getTrash);
-router.patch('/trash/:id/restore', documentController.restoreFromTrash);
+// Trash
+router.get("/trash", documentController.getTrash);
+router.patch("/trash/:id/restore", documentController.restoreFromTrash);
 
-// EDITOR ACTIONS (Wildcards)
-router.get('/:id', documentController.getDocumentById);
-router.put('/:id', documentController.updateDocument);
-router.delete('/:id', documentController.deleteDocument);
+// Editor Actions
+router.get("/:id", documentController.getDocumentById);
+router.put(
+  "/:id",
+  validateRequest(documentController.UpdateDocumentSchema),
+  documentController.updateDocument,
+);
+router.delete("/:id", documentController.deleteDocument);
+
+// --- PUBLIC ROUTES (No auth required) ---
+router.get("/public/:slug", documentController.getPublicDocument);
+router.post("/public/:slug/view", documentController.recordView); 
 
 export default router;
