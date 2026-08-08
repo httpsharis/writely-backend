@@ -1,7 +1,6 @@
 {
   "name": "writely-backend",
   "version": "1.0.0",
-  "type": "module",
   "description": "A clean, feature-based Express & TypeScript boilerplate.",
   "main": "dist/server.js",
   "scripts": {
