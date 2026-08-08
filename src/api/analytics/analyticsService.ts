@@ -76,6 +76,13 @@ export const getTotalWords = async (userId: string): Promise<number> => {
   return result[0]?.totalWords ?? 0;
 };
 
+export const getDailyWordCount = async (userId: string, date: Date): Promise<number> => {
+  const targetDate = new Date(date);
+  const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+  const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+  return getWordCountInRange(userId, startOfDay, endOfDay);
+};
+
 export const calculateStreak = async (userId: string) => {
   const activeDays = await WritingStat.aggregate([
     { $match: { userId: new mongoose.Types.ObjectId(userId) } },
@@ -125,12 +132,8 @@ export const calculateStreak = async (userId: string) => {
 };
 
 export const getDashboardSummary = async (userId: string) => {
-  const targetDate = new Date();
-  const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
-  const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
-
   const [wordsToday, streaks, totalWords] = await Promise.all([
-    getWordCountInRange(userId, startOfDay, endOfDay),
+    getDailyWordCount(userId, new Date()),
     calculateStreak(userId),
     getTotalWords(userId),
   ]);
