@@ -122,7 +122,7 @@ importers:
         version: 8.65.0(eslint@10.7.0)(typescript@6.0.3)
 
 packages:
-
+  '.':
   '@clerk/backend@3.16.1':
     resolution: {integrity: sha512-tbsrGqw45ar7PDnEV3gwkHE/HM1EwRcYPPLyL3Hw9H0Ms5fG7hZ8+EJegPJ4DpKdfvOw5M+hYMeCVKwv3NxahA==}
     engines: {node: '>=20.9.0'}
