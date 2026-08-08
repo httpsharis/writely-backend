@@ -3,6 +3,9 @@
  * @desc Business logic for compiling, parsing, and formatting novels for export.
  */
 import Document from "../document/documentModel";
+import User from "../user/userModel";
+import Character from "../character/characterModel";
+import Note from "../note/noteModel";
 import { NotFoundError } from "../../utils/errors";
 
 interface TipTapNode {
@@ -81,5 +84,31 @@ export const compileNovelForExport = async (
   return {
     filename: safeFilename,
     content: compiledText,
+  };
+};
+
+export const exportLibrary = async (userId: string) => {
+  const [profile, documents, characters, notes] = await Promise.all([
+    User.findById(userId).lean(),
+    Document.find({ owner: userId, deletedAt: null }).lean(),
+    Character.find({ userId }).lean(),
+    Note.find({ owner: userId }).lean(),
+  ]);
+
+  if (!profile) throw new NotFoundError("User not found");
+
+  return {
+    exportedAt: new Date().toISOString(),
+    version: "1.0",
+    profile: {
+      name: profile.name,
+      username: profile.username,
+      email: profile.email,
+      settings: profile.settings,
+      profile: profile.profile,
+    },
+    documents,
+    characters,
+    notes,
   };
 };

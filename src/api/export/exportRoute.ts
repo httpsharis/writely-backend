@@ -11,6 +11,7 @@ const router = Router();
 // Apply JWT protection to all export routes
 router.use(protect);
 
+router.get("/library", exportController.exportLibrary);
 router.get("/novel/:novelId", exportController.exportNovel);
 
 export default router;

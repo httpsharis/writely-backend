@@ -10,6 +10,7 @@ import helmet from "helmet";
 import compression from "compression";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import { clerkMiddleware } from "@clerk/express";
 
 // Middleware Imports
 import { apiLimiter } from "./middleware/rateLimitMiddleware";
@@ -33,6 +34,7 @@ const app: Application = express();
 // 1. Parsers & Cookies
 app.use(express.json());
 app.use(cookieParser());
+app.use(clerkMiddleware());
 
 // 2. Performance & Logging
 app.use(compression()); // Compresses JSON responses for optimized payload delivery

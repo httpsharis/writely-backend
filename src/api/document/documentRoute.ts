@@ -36,5 +36,6 @@ router.delete("/:id", documentController.deleteDocument);
 // --- PUBLIC ROUTES (No auth required) ---
 router.get("/public/:slug", documentController.getPublicDocument);
 router.post("/public/:slug/view", documentController.recordView); 
+router.post("/public/:slug/like", documentController.likeDocument);
 
 export default router;

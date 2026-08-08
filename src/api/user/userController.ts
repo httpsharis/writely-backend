@@ -16,6 +16,12 @@ export const UpdateProfileSchema = z.object({
     .min(3, "Username must be at least 3 characters")
     .optional(),
   bio: z.string().optional(),
+  coverImageUrl: z.string().url("Invalid image URL").optional().or(z.literal("")),
+  socialLinks: z.object({
+    twitter: z.string().optional().or(z.literal("")),
+    instagram: z.string().optional().or(z.literal("")),
+    website: z.string().optional().or(z.literal("")),
+  }).optional(),
 });
 
 /**
@@ -47,7 +53,7 @@ export const getAnalytics = asyncHandler(
 export const updateProfile = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.userId;
-    const { name, username, bio } = req.body;
+    const { name, username, bio, coverImageUrl, socialLinks } = req.body;
 
     // Check if they are trying to claim a username someone else already owns
     if (username) {
@@ -61,6 +67,8 @@ export const updateProfile = asyncHandler(
       name,
       username,
       bio,
+      coverImageUrl,
+      socialLinks,
     });
     res.status(200).json({ user });
   },

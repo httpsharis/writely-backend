@@ -26,3 +26,23 @@ export const exportNovel = asyncHandler(
     res.status(200).send(content);
   },
 );
+
+/**
+ * @route GET /api/export/library
+ * @desc Exports the entire user's library (novels, characters, notes, profile) as JSON.
+ */
+export const exportLibrary = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const backupData = await exportService.exportLibrary(req.user!.userId);
+
+    const safeDate = new Date().toISOString().split("T")[0];
+    const filename = `writely-backup-${safeDate}.json`;
+
+    // Tell the browser to download this response as a file
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+
+    // Send the JSON backup
+    res.status(200).json(backupData);
+  },
+);

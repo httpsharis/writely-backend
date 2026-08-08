@@ -9,6 +9,7 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 
 export interface IUser extends Document {
   _id: Types.ObjectId; // 🟢 Now perfectly recognized by TypeScript
+  clerkId?: string;
   googleId?: string;
   password?: string;
   email: string;
@@ -22,6 +23,7 @@ export interface IUser extends Document {
   profile: {
     bio?: string;
     avatarUrl?: string;
+    coverImageUrl?: string;
     website?: string;
     socialLinks?: { twitter?: string; instagram?: string };
   };
@@ -37,6 +39,7 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
   {
+    clerkId: { type: String, unique: true, sparse: true },
     googleId: { type: String, unique: true, sparse: true },
     password: { type: String, select: false },
     email: {
@@ -66,11 +69,13 @@ const UserSchema = new Schema<IUser>(
     profile: {
       bio: { type: String, default: "", maxLength: 500 },
       avatarUrl: { type: String, default: "" },
+      coverImageUrl: { type: String, default: "" },
       website: { type: String, default: "" },
       socialLinks: {
         twitter: { type: String, default: "" },
         instagram: { type: String, default: "" },
       },
+      default: {},
     },
     settings: {
       theme: {
@@ -94,8 +99,8 @@ const UserSchema = new Schema<IUser>(
 );
 
 UserSchema.pre<IUser>("save", async function () {
-  if (!this.googleId && !this.password) {
-    throw new Error("A user must have either a googleId or a password.");
+  if (!this.clerkId && !this.googleId && !this.password) {
+    throw new Error("A user must have either a clerkId, googleId or a password.");
   }
 });
 

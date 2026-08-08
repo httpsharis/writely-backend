@@ -59,13 +59,23 @@ export const saveRefreshToken = async (
 
 export const updateUserProfile = async (
   userId: string,
-  data: { name?: string; username?: string; bio?: string },
+  data: { 
+    name?: string; 
+    username?: string; 
+    bio?: string; 
+    coverImageUrl?: string;
+    socialLinks?: { twitter?: string; instagram?: string; website?: string };
+  },
 ) => {
-  const updateData: Record<string, string> = {};
+  const updateData: Record<string, any> = {};
 
   if (data.name) updateData.name = data.name;
   if (data.username) updateData.username = data.username;
-  if (data.bio) updateData["profile.bio"] = data.bio; // Safe nested update
+  if (data.bio !== undefined) updateData["profile.bio"] = data.bio;
+  if (data.coverImageUrl !== undefined) updateData["profile.coverImageUrl"] = data.coverImageUrl;
+  if (data.socialLinks?.twitter !== undefined) updateData["profile.socialLinks.twitter"] = data.socialLinks.twitter;
+  if (data.socialLinks?.instagram !== undefined) updateData["profile.socialLinks.instagram"] = data.socialLinks.instagram;
+  if (data.socialLinks?.website !== undefined) updateData["profile.socialLinks.website"] = data.socialLinks.website;
 
   return User.findByIdAndUpdate(
     userId,
@@ -134,6 +144,29 @@ export const getProfileAnalytics = async (userId: string) => {
 
   if (!user) throw new NotFoundError("User profile not found");
 
+  const today = new Date();
+  const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+  const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+  
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(today.getDate() - 7);
+  const startOfSevenDaysAgo = new Date(sevenDaysAgo.setHours(0, 0, 0, 0));
+
+  const goalsWithProgress = await Promise.all(
+    activeGoals.map(async (goal) => {
+      let currentWords = 0;
+      if (goal.type === "daily") {
+        currentWords = await analyticsService.getWordCountInRange(userId, startOfDay, endOfDay);
+      } else if (goal.type === "weekly") {
+        currentWords = await analyticsService.getWordCountInRange(userId, startOfSevenDaysAgo, endOfDay);
+      } else if (goal.type === "novel_total" && goal.novelId) {
+        const doc = await Document.findById(goal.novelId).select("wordCount").lean();
+        currentWords = doc?.wordCount || 0;
+      }
+      return { ...goal, currentWords };
+    })
+  );
+
   return {
     profile: user.profile,
     settings: user.settings,
@@ -142,7 +175,7 @@ export const getProfileAnalytics = async (userId: string) => {
       longestStreak: streaks.longest,
       heatmap: thirtyDayHeatmap,
     },
-    goals: activeGoals,
+    goals: goalsWithProgress,
   };
 };
 

@@ -6,6 +6,7 @@
 import * as crypto from "crypto";
 import mongoose from "mongoose";
 import Document, { IDocument } from "./documentModel";
+import Character from "../character/characterModel";
 import { NotFoundError } from "../../utils/errors";
 
 // Interface for clean function signatures
@@ -18,6 +19,11 @@ interface CreateDocDTO {
   tags?: string[];
   targetWords?: number;
 }
+
+export type PopulatedPublicDoc = Omit<IDocument, "owner"> & {
+  owner: { _id: mongoose.Types.ObjectId; name: string };
+  characters?: any[];
+};
 
 const generateSlug = (title: string): string => {
   const baseSlug = title
@@ -45,8 +51,14 @@ export const createDocument = async (
 
 export const getUserDocuments = async (
   ownerId: string,
+  type?: string
 ): Promise<IDocument[]> => {
-  return Document.find({ owner: ownerId, deletedAt: null })
+  const query: any = { owner: ownerId, deletedAt: null };
+  if (type) {
+    query.type = type;
+  }
+  
+  return Document.find(query)
     .select("-content") // Exclude heavy payload
     .sort({ updatedAt: -1 })
     .lean();
@@ -63,9 +75,12 @@ export const getDocumentById = async (docId: string, ownerId: string) => {
 
   if (!document) return null;
 
+  // 🟢 SENIOR FIX: Explicitly cast to ObjectId to ensure Mongoose matches the parentId
+  const safeId = new mongoose.Types.ObjectId(document._id.toString());
+
   // Attach children dynamically
   document.chapters = (await Document.find({
-    parentId: document._id,
+    parentId: safeId,
     owner: ownerId,
     deletedAt: null,
   })
@@ -77,10 +92,61 @@ export const getDocumentById = async (docId: string, ownerId: string) => {
 
 export const getPublishedDocumentBySlug = async (
   slug: string,
-): Promise<IDocument | null> => {
-  return Document.findOne({ slug, status: "published", deletedAt: null })
+): Promise<PopulatedPublicDoc | null> => {
+  // 1. Fetch the main requested document
+  const doc = await Document.findOne({ slug, status: "published", deletedAt: null })
     .populate("owner", "name")
     .lean();
+
+  if (!doc) return null;
+
+  // 2. If it is a NOVEL (The Hub Page), fetch all its published chapters and characters
+  if (doc.type === "novel") {
+    const safeId = new mongoose.Types.ObjectId(doc._id.toString());
+    doc.chapters = await Document.find({
+      parentId: safeId,
+      type: "chapter",
+      status: "published",
+      deletedAt: null,
+    })
+      .sort({ order: 1, createdAt: 1 })
+      .lean();
+      
+    const chars = await Character.find({ novel: safeId }).lean();
+    (doc as any).characters = chars;
+  }
+
+  // 3. If it is a CHAPTER (The Reader Page), fetch its parent novel AND sibling chapters
+  else if (doc.type === "chapter" && doc.parentId) {
+    const safeParentId = new mongoose.Types.ObjectId(doc.parentId.toString());
+
+    const parentNovel = await Document.findOne({
+      _id: safeParentId,
+      status: "published",
+      deletedAt: null,
+    })
+      .populate("owner", "name")
+      .lean();
+
+    if (parentNovel) {
+      const safeParentNovelId = new mongoose.Types.ObjectId(parentNovel._id.toString());
+      parentNovel.chapters = await Document.find({
+        parentId: safeParentNovelId,
+        type: "chapter",
+        status: "published",
+        deletedAt: null,
+      })
+        .sort({ order: 1, createdAt: 1 })
+        .lean();
+
+      const chars = await Character.find({ novel: safeParentNovelId }).lean();
+      (parentNovel as any).characters = chars;
+
+      doc.novel = parentNovel as unknown as IDocument;
+    }
+  }
+
+  return doc as unknown as PopulatedPublicDoc;
 };
 
 export const updateDocument = async (
@@ -89,6 +155,10 @@ export const updateDocument = async (
   updateData: Partial<IDocument>,
 ): Promise<IDocument | null> => {
   delete updateData.owner; // 🔒 Security lock
+
+  if (updateData.title) {
+    updateData.slug = generateSlug(updateData.title);
+  }
 
   const isId = mongoose.Types.ObjectId.isValid(docId);
 
@@ -107,7 +177,7 @@ export const updateDocument = async (
     },
     { $set: updateData },
     { returnDocument: "after", runValidators: true },
-  );
+  ).lean();
 };
 
 export const softDeleteDocument = async (
@@ -195,5 +265,16 @@ export const incrementViewCount = async (slug: string) => {
     { slug, status: "published", deletedAt: null },
     { $inc: { viewsCount: 1 } },
     { new: true, select: "viewsCount" }, // Only return the updated count to save bandwidth
+  );
+};
+
+/**
+ * @desc Atomically increments the like count of a published document.
+ */
+export const incrementLikeCount = async (slug: string) => {
+  return Document.findOneAndUpdate(
+    { slug, status: "published", deletedAt: null },
+    { $inc: { likesCount: 1 } },
+    { new: true, select: "likesCount" },
   );
 };

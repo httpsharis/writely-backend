@@ -20,6 +20,8 @@
   "author": "Muhammad Haris",
   "license": "MIT",
   "dependencies": {
+    "@clerk/backend": "^3.16.1",
+    "@clerk/express": "^2.1.52",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "compression": "^1.8.1",

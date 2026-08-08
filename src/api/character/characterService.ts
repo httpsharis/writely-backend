@@ -30,6 +30,8 @@ export const getCharactersByNovel = async (
   novelId: string | null,
   userId: string,
 ) => {
+  let query: any = { userId };
+
   if (novelId) {
     const novelExists = await Document.exists({
       _id: novelId,
@@ -39,11 +41,13 @@ export const getCharactersByNovel = async (
     });
     if (!novelExists)
       throw new NotFoundError("Novel not found or access denied");
+    query.novelId = novelId;
   }
 
   // Use .lean() for faster GET requests
-  return Character.find({ novelId, userId })
+  return Character.find(query)
     .populate("relationships.targetCharacterId", "name role avatarUrl")
+    .populate("novelId", "title")
     .sort({ role: 1, name: 1 })
     .lean();
 };

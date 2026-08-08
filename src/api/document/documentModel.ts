@@ -21,11 +21,13 @@ export interface IDocument extends Document {
   genre?: string[];
   targetWords?: number;
   coverImage?: string;
+  authorNote?: string;
   wordCount?: number;
   chapters?: IDocument[]; // Virtual field for populated child chapters
   viewsCount: number;
   likesCount: number;
   icon?: string;
+  novel?: IDocument;
   deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -52,6 +54,7 @@ const DocumentSchema = new Schema<IDocument>(
     parentId: { type: Schema.Types.ObjectId, ref: "Document", default: null },
     order: { type: Number, default: 0 },
     synopsis: { type: String, default: "", maxLength: 2000 },
+    authorNote: { type: String, default: "" },
     genre: [{ type: String }],
     tags: [{ type: String }],
     wordCount: { type: Number, default: 0 },

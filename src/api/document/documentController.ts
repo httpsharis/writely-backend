@@ -22,11 +22,15 @@ export const CreateDocumentSchema = z.object({
 
 export const UpdateDocumentSchema = z.object({
   title: z.string().optional(),
-  content: z.any().optional(), // TipTap JSON
+  content: z.union([z.record(z.string(), z.unknown()), z.string()]).optional(), // TipTap JSON
   status: z.enum(["draft", "published", "archived"]).optional(),
   coverImage: z.string().optional(),
   icon: z.string().optional(),
   parentId: z.string().nullable().optional(),
+  targetWords: z.number().optional(),
+  synopsis: z.string().optional(),
+  authorNote: z.string().optional(),
+  wordCount: z.number().optional(),
 });
 
 /**
@@ -47,7 +51,8 @@ export const createDocument = asyncHandler(
  */
 export const getMyDocuments = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const documents = await documentService.getUserDocuments(req.user!.userId);
+    const type = req.query.type as string | undefined;
+    const documents = await documentService.getUserDocuments(req.user!.userId, type);
     res.status(200).json({ documents });
   },
 );
@@ -71,13 +76,24 @@ export const getDocumentById = asyncHandler(
  */
 export const updateDocument = asyncHandler(
   async (req: AuthRequest, res: Response) => {
+
+    // 🟢 DIAGNOSTIC LOGS: Let's see exactly what the frontend is sending
+    console.log("\n--- 🟢 UPDATE NOVEL DIAGNOSTIC ---");
+    console.log("1. Target ID:", req.params.id);
+    console.log("2. Incoming Payload:", req.body);
+
     const updatedDocument = await documentService.updateDocument(
       req.params.id,
       req.user!.userId,
       req.body,
     );
+
+    console.log("3. Saved Status in DB:", updatedDocument?.status);
+    console.log("---------------------------------\n");
+
     if (!updatedDocument)
       return res.status(404).json({ error: "Document not found" });
+
     res.status(200).json({ document: updatedDocument });
   },
 );
@@ -143,12 +159,27 @@ export const restoreFromTrash = asyncHandler(
  * @desc Records a valid "read" (view) after the frontend verifies the 10-second rule.
  */
 export const recordView = asyncHandler(async (req: Request, res: Response) => {
-    const doc = await documentService.incrementViewCount(req.params.slug);
-    
-    if (!doc) {
-        res.status(404).json({ error: 'Document not found or private' });
-        return;
-    }
+  const doc = await documentService.incrementViewCount(req.params.slug);
 
-    res.status(200).json({ success: true, viewsCount: doc.viewsCount });
+  if (!doc) {
+    res.status(404).json({ error: "Document not found or private" });
+    return;
+  }
+
+  res.status(200).json({ success: true, viewsCount: doc.viewsCount });
+});
+
+/**
+ * @route POST /api/documents/public/:slug/like
+ * @desc Increments the like count for a document.
+ */
+export const likeDocument = asyncHandler(async (req: Request, res: Response) => {
+  const doc = await documentService.incrementLikeCount(req.params.slug);
+
+  if (!doc) {
+    res.status(404).json({ error: "Document not found or private" });
+    return;
+  }
+
+  res.status(200).json({ success: true, likesCount: doc.likesCount, message: "Liked successfully" });
 });

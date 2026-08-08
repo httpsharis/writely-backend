@@ -102,8 +102,16 @@ export const findOrCreateGoogleUser = async ({
   // Link account if they previously registered with an email/password
   if (!user.googleId) {
     user.googleId = googleId;
-    if (picture && !user.profile?.avatarUrl)
-      user.profile = { ...user.profile, avatarUrl: picture };
+    
+    if (picture) {
+      if (!user.profile) {
+        user.profile = {}; 
+      }
+      if (!user.profile.avatarUrl) {
+        user.profile.avatarUrl = picture;
+      }
+    }
+    
     await user.save();
   }
 
