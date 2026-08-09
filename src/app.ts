@@ -31,33 +31,46 @@ import analyticsRoute from "./api/analytics/analyticsRoute";
 
 const app: Application = express();
 
-// 1. Parsers & Cookies
-app.use(express.json());
-app.use(cookieParser());
-app.use(clerkMiddleware());
+// 1. CORS FIRST (Must intercept OPTIONS preflight requests before all other middleware)
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  process.env.FRONTEND_URL, // e.g. https://writely.vercel.app
+].filter(Boolean) as string[];
 
-// 2. Performance & Logging
-app.use(compression()); // Compresses JSON responses for optimized payload delivery
-app.use(morgan("dev")); // HTTP request logging for monitoring traffic
-
-// 3. Global Security Middleware
-app.use(helmet()); // Sets 14+ security-focused HTTP headers
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    credentials: true, // Allows HTTP-Only cookies to pass through
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server)
+      if (!origin || allowedOrigins.some((url) => origin.startsWith(url))) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    },
+    credentials: true, // Crucial for Clerk headers & cookies
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
-app.use(mongoSanitize()); // Prevents malicious MongoDB operator injections
+
+// 2. Security & Loggers
+app.use(helmet()); // Sets 14+ security-focused HTTP headers
+app.use(mongoSanitize()); // Prevents MongoDB operator injections
+app.use(morgan("dev")); // HTTP request logging
+app.use(compression()); // Response payload compression
+
+// 3. Parsers & Clerk Authentication
+app.use(express.json());
+app.use(cookieParser());
+app.use(clerkMiddleware()); // Now safely parses tokens after CORS is handled
 
 // 4. Rate Limiting
-app.use("/api", apiLimiter); // Protects all /api routes from spam/DDoS
+app.use("/api", apiLimiter); // Protects /api routes from spam/DDoS
 
 // 5. Domain Routes
 app.use("/api/users", userRoutes);
-app.use("/api/auth", authRoutes); // Auth uses its own stricter rate limiter internally
+app.use("/api/auth", authRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/likes", likeRoutes);
 app.use("/api/characters", characterRoutes);
@@ -68,7 +81,7 @@ app.use("/api/search", searchRoutes);
 app.use("/api/profile", profileRoute);
 app.use("/api/analytics", analyticsRoute);
 
-// 6. Global Error Handler (Must be the last middleware)
+// 6. Global Error Handler (Must be last)
 app.use(errorHandler);
 
 export default app;
