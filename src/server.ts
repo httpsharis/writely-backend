@@ -11,10 +11,10 @@ import { connectDB } from "./config/db"; // Use our custom, optimized DB connect
 
 // 1. Fail-Fast Environment Variable Validation
 const requiredEnvVars = [
-  "JWT_ACCESS_SECRET",
-  "GOOGLE_CLIENT_ID",
+  "CLERK_SECRET_KEY",
   "MONGODB_URI",
 ];
+
 for (const key of requiredEnvVars) {
   if (!process.env[key]) {
     console.error(`FATAL ERROR: Missing required env var: ${key}`);
