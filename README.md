@@ -1,186 +1,147 @@
-<div align="center">
+# Writely Backend API
 
-# Writely — Backend API
+> An enterprise-grade, feature-based Express & TypeScript REST API powering the Writely novel studio and world-building engine.
 
-**An enterprise-grade REST API for a full-featured novel writing and world-building platform.**
+![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=flat-square&logo=node.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript)
+![Express](https://img.shields.io/badge/Express-4.x-000000?style=flat-square&logo=express)
+![MongoDB](https://img.shields.io/badge/MongoDB-7.x-47A248?style=flat-square&logo=mongodb)
+![Clerk Auth](https://img.shields.io/badge/Auth-Clerk%20SDK-6C47FF?style=flat-square&logo=clerk)
+![Cloudinary](https://img.shields.io/badge/Storage-Cloudinary-3448C5?style=flat-square&logo=cloudinary)
 
-Built with TypeScript · Express · MongoDB
-
-[![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-7.x-47A248?style=flat-square&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Express](https://img.shields.io/badge/Express-4.x-000000?style=flat-square&logo=express&logoColor=white)](https://expressjs.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-
-</div>
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
-- [Key Features](#key-features)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Environment Variables](#environment-variables)
-  - [Running the Server](#running-the-server)
-- [API Reference](#api-reference)
-- [Database Design](#database-design)
-- [Security Model](#security-model)
-- [Analytics Engine](#analytics-engine)
-- [Deployment](#deployment)
-- [Roadmap](#roadmap)
+🔗 **Repositories & Live Links**:
+- ⚙️ **Backend REST API**: [https://github.com/httpsharis/writely-backend](https://github.com/httpsharis/writely-backend)
+- 🌐 **Frontend Web App**: [https://github.com/httpsharis/writely](https://github.com/httpsharis/writely)
+- 🚀 **Live Demo**: [https://writely-rho.vercel.app](https://writely-rho.vercel.app)
 
 ---
 
 ## Overview
 
-Writely's backend powers a novelist's complete workflow — from writing and world-building to publishing and reader analytics. It is designed from the ground up as a **universal backend**, serving an identical API contract to the Writely web app (Next.js) and the forthcoming Android client.
+**Writely Backend** is a feature-encapsulated REST API engineered for novel drafting, world-building, document management, and time-series writing analytics. Built with Node.js, Express, TypeScript, and MongoDB, it implements strict domain boundaries, automated Just-In-Time (JIT) Clerk user synchronization, robust security controls, and high-performance MongoDB aggregations.
 
-The API is not a CRUD wrapper. It implements:
-
-- A **time-series analytics engine** using the snapshot strategy for accurate word-count tracking without database flooding
-- A **relational world-building engine** that links Characters and Notes to their parent Novels with strict ownership verification at every layer
-- A **Backend-for-Frontend (BFF) orchestration layer** that compiles complex dashboard metrics into single, optimized payloads
-- A **media pipeline** that streams uploads directly to Cloudinary, bypassing server memory entirely
+The backend serves both the Next.js frontend web workspace and future mobile/client integrations via a unified API contract.
 
 ---
 
-## Tech Stack
+## Technical Stack
 
 | Layer | Technology | Purpose |
-|---|---|---|
-| **Runtime** | Node.js 20.x | Server runtime |
-| **Framework** | Express 4.x | HTTP server and routing |
-| **Language** | TypeScript 5.x | Type safety across all layers |
-| **Database** | MongoDB 7.x + Mongoose | Primary data store with advanced aggregation |
-| **Authentication** | Google OAuth 2.0 + JWT | Passwordless auth via Google Identity |
-| **Validation** | Zod | Runtime schema validation on all request bodies |
-| **Media Storage** | Cloudinary + Multer | Direct-to-cloud image upload streaming |
-| **Security** | Helmet, express-rate-limit, express-mongo-sanitize | Defence-in-depth HTTP hardening |
-| **Logging** | Morgan | HTTP request logging |
-| **Compression** | compression | Brotli/Gzip response compression |
+| :--- | :--- | :--- |
+| **Runtime & Server** | Node.js 20.x / Express 4.x | Fast, event-driven HTTP application server |
+| **Language** | TypeScript 5.x | Strict type definitions across controllers, services, and schemas |
+| **Database & ODM** | MongoDB 7.x + Mongoose 9 | Primary document store with pooled connections & aggregation pipelines |
+| **Authentication** | Clerk (`@clerk/express`) | Bearer token validation & JIT user synchronization into MongoDB |
+| **Validation** | Zod | Schema validation middleware for incoming request payloads |
+| **Media Pipeline** | Cloudinary + Multer | Memory-less direct image streaming for covers & avatars |
+| **Security Hardening** | Helmet, CORS, Mongo-Sanitize, Express-Rate-Limit | Defense-in-depth security, XSS protection, and DDoS prevention |
+| **Process Dev Tooling**| `tsx watch`, `cross-env` | Fast TypeScript execution runtime with instant hot reloading |
 
 ---
 
-## Architecture
+## Architecture & Directory Layout
 
-This project strictly follows **Domain-Driven Design (DDD)**. Each feature domain is fully encapsulated — Model, Service, Controller, and Route live together. No domain reaches into another domain's internals; cross-domain communication happens only through service interfaces.
+The application follows **Domain-Driven Design (DDD)** principals. Each feature domain encapsulates its routes, controllers, services, and Mongoose schemas inside its own folder under `src/api/`.
 
+```text
+writely-backend/
+├── src/
+│   ├── api/                    # Domain Feature Modules
+│   │   ├── analytics/          # Word count snapshots, streak calculations, writing stats
+│   │   ├── auth/               # User session verification & Clerk profile routing
+│   │   ├── character/          # Character database, relationships & role classifications
+│   │   ├── document/           # Novel & chapter hierarchy, Tiptap JSON content, publishing
+│   │   ├── export/             # Manuscript compilation & Markdown archive exporter
+│   │   ├── like/               # Engagement metrics for public reader manuscripts
+│   │   ├── note/               # Relational lore notes, timelines, plot research
+│   │   ├── profile/            # User profile aggregation feeds & stats
+│   │   ├── search/             # Global search index across novels & world lore
+│   │   ├── upload/             # Direct Cloudinary image streaming controller
+│   │   └── user/               # User document management & BFF orchestration
+│   ├── config/                 # Mongoose connection pooling & Cloudinary SDK setup
+│   ├── middleware/             # Security, auth guarding, validation & error handling
+│   │   ├── authMiddleware.ts   # Clerk JWT validation & JIT MongoDB user creation
+│   │   ├── errorHandler.ts     # Global centralized error handler
+│   │   ├── rateLimitMiddleware.ts # API rate-limiting rules
+│   │   ├── uploadMiddleware.ts # Multer Cloudinary storage engine
+│   │   └── validateMiddleware.ts # Zod schema validation middleware
+│   ├── utils/                  # Domain errors, date helpers, slug generation
+│   ├── app.ts                  # Express application setup, middleware chain & routes
+│   └── server.ts               # Fail-fast env checks, DB boot & graceful shutdown
+├── Dockerfile                  # Container build instructions
+├── docker-compose.yml          # Container orchestration
+└── package.json
 ```
-src/
-├── api/
-│   ├── analytics/          # Time-series word tracking, streaks, and writing goals
-│   │   ├── writingStatModel.ts
-│   │   ├── analyticsService.ts
-│   │   ├── analyticsController.ts
-│   │   └── analyticsRoute.ts
-│   ├── auth/               # Google OAuth verification and JWT issuance
-│   │   ├── authService.ts
-│   │   ├── authController.ts
-│   │   └── authRoute.ts
-│   ├── character/          # Relational world-building — character sheets and relationship graphs
-│   │   ├── characterModel.ts
-│   │   ├── characterService.ts
-│   │   ├── characterController.ts
-│   │   └── characterRoute.ts
-│   ├── document/           # Novel and Chapter text management (TipTap JSON content)
-│   │   ├── documentModel.ts
-│   │   ├── documentService.ts
-│   │   ├── documentController.ts
-│   │   └── documentRoute.ts
-│   ├── export/             # Manuscript compilation engine — outputs .md archives
-│   │   ├── exportService.ts
-│   │   ├── exportController.ts
-│   │   └── exportRoute.ts
-│   ├── like/               # Reader engagement and public document metrics
-│   │   ├── likeModel.ts
-│   │   ├── likeService.ts
-│   │   ├── likeController.ts
-│   │   └── likeRoute.ts
-│   ├── note/               # Relational world-building — lore, timelines, and research
-│   │   ├── noteModel.ts
-│   │   ├── noteService.ts
-│   │   ├── noteController.ts
-│   │   └── noteRoute.ts
-│   ├── upload/             # Cloudinary media streaming pipeline
-│   │   ├── uploadService.ts
-│   │   └── uploadRoute.ts
-│   └── user/               # Profiles, settings, and BFF orchestration
-│       ├── userModel.ts
-│       ├── userService.ts
-│       ├── userController.ts
-│       └── userRoute.ts
-├── config/
-│   └── cloudinary.ts       # Cloudinary SDK initialisation
-├── middleware/
-│   ├── authMiddleware.ts   # JWT verification and request augmentation
-│   ├── errorHandler.ts     # Centralised error handling with custom error classes
-│   └── uploadMiddleware.ts # Multer + Cloudinary storage engine configuration
-├── utils/
-│   ├── errors.ts           # NotFoundError, UnauthorizedError, ValidationError
-│   └── helpers.ts          # Date utilities, word count, slug generation
-└── server.ts               # App bootstrap, middleware chain, and graceful shutdown
-```
-
-### Design Principles
-
-- **Single Responsibility** — Services contain business logic. Controllers handle HTTP only. Models define schema only.
-- **Ownership Verification at Every Layer** — Every mutation in every service verifies that the requesting user owns the target resource before touching the database. This eliminates IDOR vulnerabilities by design.
-- **Fail Fast** — All required environment variables are validated at startup. The server will not start with an incomplete configuration.
-- **Error Propagation via `next(error)`** — No controller handles its own server errors. All exceptions propagate to the centralised `errorHandler` middleware.
 
 ---
 
-## Key Features
+## Key Features & Security Architecture
 
-### Time-Series Analytics Engine
+### 1. Clerk Authentication & JIT User Synchronization
+- All protected endpoints pass through `authMiddleware.ts`.
+- Extracts the verified Clerk User ID from the request header (`Bearer <token>`).
+- Performs a **Just-In-Time (JIT) sync**: If a corresponding MongoDB user record does not exist, it queries Clerk's API, provisions a new `User` document in MongoDB, and attaches the local `_id` to `req.user`.
 
-Standard word-count tracking breaks the moment an author pastes text from another document or deletes a chapter. Writely uses a **snapshot strategy** instead.
+### 2. Time-Series Analytics Engine
+- Uses a **snapshot strategy** to track word count progress without database inflation.
+- Records absolute word counts with a **5-minute cooldown guard** during active writing sessions.
+- Aggregation pipelines compute daily word deltas and calculate consecutive writing streaks on demand.
 
-Every autosave records the absolute word count of the chapter at that millisecond. The backend calculates the daily delta at read time by subtracting the day's first snapshot from its last. A **5-minute cooldown guard** prevents database flooding from rapid autosave events, reducing storage volume by approximately 98% compared to a naive approach.
+### 3. IDOR & Ownership Protection
+- Resource ownership is verified across the entity hierarchy before any mutation.
+- Requests targeting characters, notes, or chapters verify that `parentNovel.owner === req.user.userId`.
 
-The streak engine walks chronologically through distinct active days, tracking both the current active streak and the user's all-time longest streak for motivational context.
+### 4. Memory-Less Cloud Storage Pipeline
+- Image uploads (novel covers and character avatars) are streamed directly from the request stream to Cloudinary via `multer-storage-cloudinary`.
+- Eliminates temporary disk I/O and prevents memory spikes on server nodes.
 
-### World-Building Engine
+### 5. Graceful Shutdown & Fail-Fast Startup
+- Environment variables (`CLERK_SECRET_KEY`, `MONGODB_URI`) are validated at startup before accepting traffic.
+- Process handlers for `SIGINT` and `SIGTERM` gracefully drain active HTTP connections and safely close MongoDB connections.
 
-Authors build their novels' universes through two relational models tied to a parent Novel document.
+---
 
-**Characters** support a relationship graph via a `relationships` sub-array, allowing bidirectional links between characters (e.g., sibling, rival, mentor). Character queries are scoped to the parent Novel, enabling the frontend editor sidebar to load all relevant characters instantly when a chapter is opened.
+## API Endpoints Reference
 
-**Notes** are typed (`lore`, `plot`, `worldbuilding`, `research`, `timeline`, `misc`) and support optional type-filtering via query parameter, so the sidebar can surface only the most contextually relevant notes while writing.
+### Authentication & Users — `/api/users` · `/api/auth`
 
-### IDOR Protection
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/auth/me` | 🔒 Clerk | Get current authenticated user profile |
+| `GET` | `/api/users/profile` | 🔒 Clerk | Get user dashboard metrics & aggregated feeds |
+| `PATCH` | `/api/users/profile` | 🔒 Clerk | Update user profile & preferences |
 
-All world-building endpoints verify resource ownership by traversing the document ownership chain:
+### Documents & Manuscripts — `/api/documents`
 
-```
-Request → Verify JWT (authMiddleware)
-        → Verify resource exists
-        → Verify parent Novel owner === req.user.userId
-        → Execute mutation
-```
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/documents/novels` | 🔒 Clerk | Fetch all novels owned by the user |
+| `POST` | `/api/documents` | 🔒 Clerk | Create a new novel or chapter |
+| `GET` | `/api/documents/:id` | 🔒 Clerk | Fetch a single document by ID |
+| `PUT` | `/api/documents/:id` | 🔒 Clerk | Update document title, content, or status |
+| `DELETE` | `/api/documents/:id` | 🔒 Clerk | Soft-delete document (`deletedAt`) |
+| `GET` | `/api/documents/public/:slug`| Public | Fetch published document for reader mode |
 
-A user with a valid JWT cannot read, modify, or delete another author's characters or notes.
+### World-Building — `/api/characters` · `/api/notes`
 
-### BFF Orchestration Layer
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/characters/novel/:novelId` | 🔒 Clerk | List all characters for a specific novel |
+| `POST` | `/api/characters/novel/:novelId` | 🔒 Clerk | Create a character with role & traits |
+| `PUT` | `/api/characters/:id` | 🔒 Clerk | Update character sheet details |
+| `DELETE` | `/api/characters/:id` | 🔒 Clerk | Delete character entry |
+| `GET` | `/api/notes/novel/:novelId` | 🔒 Clerk | List lore notes (filterable by type) |
+| `POST` | `/api/notes/novel/:novelId` | 🔒 Clerk | Create plot, world, or timeline note |
 
-The dashboard and profile pages each require data from multiple collections. Rather than making five sequential API calls from the client, dedicated orchestration endpoints on the user domain compile everything into a single response using MongoDB aggregation pipelines. This is the Backend-for-Frontend pattern — the server does the joining, not the client.
+### Analytics & Utilities — `/api/analytics` · `/api/export` · `/api/upload`
 
-### Media Pipeline
-
-Upload endpoints stream files directly from the incoming request to Cloudinary via `multer-storage-cloudinary`. The file bytes never land on the server's disk or memory. Cloudinary transformations (resize, crop, format conversion to WebP) are applied at upload time, not at read time. Old images are deleted from Cloudinary when a user replaces them, preventing silent storage accumulation.
-
-### Export Engine
-
-Authors can export their entire manuscript as a structured Markdown archive. The export service fetches the Novel and all of its Chapters in order, compiles them into a single `.md` document with frontmatter metadata, and streams the file as a download response. No temporary files are written to disk.
-
-### Production-Ready Server
-
-The server registers `SIGTERM` and `SIGINT` handlers that close the MongoDB connection and drain in-flight HTTP requests before the process exits. This prevents data corruption during container restarts and rolling deployments.
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/analytics/snapshot` | 🔒 Clerk | Record writing snapshot for word tracking |
+| `GET` | `/api/analytics/dashboard` | 🔒 Clerk | Get daily stats, total words & active streak |
+| `GET` | `/api/export/novels/:id/markdown` | 🔒 Clerk | Export complete novel as Markdown file |
+| `PATCH` | `/api/upload/novels/:id/cover` | 🔒 Clerk | Upload novel cover image to Cloudinary |
+| `PATCH` | `/api/upload/characters/:id/avatar` | 🔒 Clerk | Upload character avatar image |
 
 ---
 
@@ -188,233 +149,91 @@ The server registers `SIGTERM` and `SIGINT` handlers that close the MongoDB conn
 
 ### Prerequisites
 
-- Node.js `>= 20.x`
-- pnpm `>= 9.x`
-- A MongoDB Atlas cluster (or local MongoDB `>= 7.x`)
-- A Cloudinary account
-- A Google Cloud project with the OAuth 2.0 API enabled
+- **Node.js**: `v18.17+` or `v20+`
+- **pnpm**: `v8+` or `v9+`
+- **MongoDB**: Atlas Cluster or local MongoDB database instance (`v6+` / `v7+`)
+- **Clerk Account**: Secret key from [Clerk Dashboard](https://dashboard.clerk.com/)
+- **Cloudinary Account**: Cloud name, API key & API secret for image storage
 
-### Installation
+### 1. Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/writely-backend.git
+# Clone the Backend Repository
+git clone https://github.com/httpsharis/writely-backend.git
 cd writely-backend
-
-# Install dependencies
 pnpm install
+
+# Clone the Frontend Repository
+git clone https://github.com/httpsharis/writely.git
 ```
 
-### Environment Variables
+### 2. Environment Variables Setup
 
-Create a `.env` file in the root directory. **Never commit this file.**
+Create a `.env` file in the root directory:
 
-```bash
-# ── Server ────────────────────────────────────────────────
+```env
+# Server Configuration
 PORT=4000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:3000
 
-# ── Database ──────────────────────────────────────────────
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/writely
+# Database Configuration
+MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/writely
 
-# ── Authentication ────────────────────────────────────────
-JWT_SECRET=your_minimum_32_character_random_secret
-JWT_EXPIRES_IN=15m
-GOOGLE_CLIENT_ID=your_google_oauth_client_id
+# Clerk Authentication
+CLERK_SECRET_KEY=your_clerk_secret_key
 
-# ── Media Storage ─────────────────────────────────────────
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+# Cloudinary Storage
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ```
 
-> **Security note:** `JWT_SECRET` must be a cryptographically random string of at least 32 characters. Generate one with `openssl rand -base64 32`.
-
-### Running the Server
+### 3. Run Development Server
 
 ```bash
-# Development (ts-node-dev with hot reload)
 pnpm dev
+```
 
-# Production build
+The server will start on `http://localhost:4000`.
+
+### 4. Build and Run Production
+
+```bash
 pnpm build
-
-# Run compiled production build
 pnpm start
 ```
 
 ---
 
-## API Reference
+## Active Refactoring & Open to Collaboration 🤝
 
-> A full Postman collection is in progress. The table below documents the current stable endpoints.
+The Writely Backend architecture is actively undergoing continuous refactoring to enhance performance, modularity, and API design. **Contributions, pull requests, and suggestions are welcomed!**
 
-### Authentication — `/api/auth`
+### High-Priority Areas for Contribution
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/auth/google` | Public | Exchange Google ID token for a Writely JWT |
-| `GET` | `/api/auth/me` | 🔒 JWT | Get the currently authenticated user |
+- **Automated Testing Suite**: Adding unit and integration test coverage with Vitest / Supertest.
+- **OpenAPI / Swagger Documentation**: Implementing auto-generated OpenAPI spec generation for API routes.
+- **Real-Time Collaboration**: Developing a WebSocket (Socket.io or `ws`) server extension for multi-user co-authoring.
+- **Redis Caching Tier**: Caching user dashboard stats and public reader endpoints to reduce MongoDB read load.
+- **Export Formats**: Adding support for compiling manuscripts to `.epub` and `.pdf` formats.
 
-### Documents — `/api/documents`
+### Contribution Guidelines
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/documents` | 🔒 JWT | Create a new Novel or Chapter |
-| `GET` | `/api/documents/novels` | 🔒 JWT | Get all novels owned by the authenticated user |
-| `GET` | `/api/documents/:id` | 🔒 JWT | Get a single document by ID |
-| `GET` | `/api/documents/read/:slug` | Public | Get a published document by its public slug |
-| `PUT` | `/api/documents/:id` | 🔒 JWT | Update document content or metadata |
-| `DELETE` | `/api/documents/:id` | 🔒 JWT | Soft-delete a document (sets `deletedAt`) |
-| `PATCH` | `/api/documents/:id/restore` | 🔒 JWT | Restore a soft-deleted document |
-
-### World-Building — `/api/characters` · `/api/notes`
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/characters/novel/:novelId` | 🔒 JWT | Create a character for a novel |
-| `GET` | `/api/characters/novel/:novelId` | 🔒 JWT | Get all characters for a novel |
-| `PUT` | `/api/characters/:characterId` | 🔒 JWT | Update a character |
-| `DELETE` | `/api/characters/:characterId` | 🔒 JWT | Delete a character |
-| `POST` | `/api/notes/novel/:novelId` | 🔒 JWT | Create a note for a novel |
-| `GET` | `/api/notes/novel/:novelId` | 🔒 JWT | Get notes (`?type=lore\|plot\|timeline…`) |
-| `PUT` | `/api/notes/:noteId` | 🔒 JWT | Update a note |
-| `DELETE` | `/api/notes/:noteId` | 🔒 JWT | Delete a note |
-
-### Analytics — `/api/analytics`
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/analytics/snapshot` | 🔒 JWT | Record a word-count snapshot for a chapter |
-| `GET` | `/api/analytics/dashboard` | 🔒 JWT | Get daily word counts and current streak |
-| `GET` | `/api/analytics/streak` | 🔒 JWT | Get current and longest writing streak |
-
-### Media — `/api/upload`
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `PATCH` | `/api/upload/novels/:novelId/cover` | 🔒 JWT | Upload or replace a novel cover image |
-| `PATCH` | `/api/upload/characters/:characterId/avatar` | 🔒 JWT | Upload or replace a character avatar |
-
-### Export — `/api/export`
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/export/novels/:novelId/markdown` | 🔒 JWT | Download full manuscript as a `.md` file |
+1. **Fork** the repository and create a feature branch:
+   ```bash
+   git checkout -b feature/backend-improvement
+   ```
+2. Adhere to strict TypeScript interfaces and domain separation.
+3. Ensure formatting and linting pass clean:
+   ```bash
+   pnpm lint
+   pnpm build
+   ```
+4. Submit a **Pull Request** explaining your implementation details and testing steps.
 
 ---
 
-## Database Design
+## License
 
-The schema follows the **referenced architecture** pattern throughout. Large or unbounded datasets (chapters, comments, analytics snapshots) are always stored in separate collections and linked by ObjectId, preventing MongoDB's 16MB document size limit from ever becoming a constraint.
-
-### Key Design Decisions
-
-| Decision | Rationale |
-|---|---|
-| `Document.type` enum (`novel`, `chapter`) | Single collection for the document tree; `parentId` self-reference handles nesting. `type` discriminator keeps queries unambiguous. |
-| `Document.status` enum (`draft`, `published`, `archived`) | Replaces a boolean `isPublic`. Allows archived documents without deletion, and clean filtering on the dashboard. |
-| `Document.slug` (unique) | Public share URLs use slugs, not MongoDB `_id`s, preventing internal ID enumeration. |
-| `Document.deletedAt` (nullable Date) | Soft delete. Removed documents are recoverable. Hard deletion is a separate admin operation. |
-| `WritingStat.wordCountSnapshot` | Absolute snapshot, not a delta. Deltas are computed at read time by the aggregation pipeline, making historical data recalculation possible if the algorithm changes. |
-| `Comment` as a separate collection | Decoupled from Document to support pagination, threading (`parentCommentId`), and inline positioning (`position.from`, `position.to`) without bloating the document record. |
-
----
-
-## Security Model
-
-| Layer | Implementation |
-|---|---|
-| **Transport** | `helmet()` sets all recommended secure HTTP headers |
-| **CORS** | Strict origin whitelist via `FRONTEND_URL` environment variable |
-| **Rate Limiting** | Global limiter (100 req / 15 min); stricter auth limiter (10 req / 15 min) on `/api/auth` |
-| **Input Sanitisation** | `express-mongo-sanitize` strips `$` operators from all request bodies and query strings |
-| **Request Validation** | Zod schemas on all `POST` and `PUT` bodies before any service call |
-| **Authentication** | Short-lived JWTs (`15m`). Google OAuth handles credential security; Writely never stores passwords. |
-| **Authorisation** | Every service mutation verifies resource ownership via `owner === req.user.userId` before executing |
-| **Error Responses** | Stack traces are included in responses only when `NODE_ENV=development`. Production responses expose only the error message. |
-
----
-
-## Analytics Engine
-
-### Snapshot Strategy
-
-```
-Autosave event fires
-        │
-        ▼
-Has a snapshot been recorded in the last 5 minutes for this chapter?
-        │
-   YES ─┤─ NO
-        │        │
-     Skip        ▼
-             Write WritingStat { wordCountSnapshot: N, createdAt: now }
-```
-
-### Daily Word Count Calculation
-
-```
-For each chapter active today:
-  delta = lastSnapshot(today) - firstSnapshot(today)
-  delta = max(0, delta)              ← floor at 0; deletions don't subtract
-
-totalWordsToday = sum(delta for all chapters)
-```
-
-### Streak Algorithm
-
-```
-Fetch all distinct calendar days where totalWordsToday > 0, sorted DESC
-
-If most recent day !== today AND !== yesterday → currentStreak = 0
-
-Otherwise: walk backwards through days
-  if gap between consecutive days === 1 → increment streak
-  if gap > 1 → break
-
-Track longestStreak alongside currentStreak
-```
-
----
-
-## Deployment
-
-The application is container-ready. Environment variables are injected at runtime and never baked into the image.
-
-**Recommended stack:**
-
-- **Compute:** Railway, Render, or any Docker-compatible host
-- **Database:** MongoDB Atlas (M10 or above for production)
-- **Media:** Cloudinary (free tier sufficient for early scale)
-
-**Production checklist:**
-
-- [ ] `NODE_ENV=production` is set
-- [ ] `JWT_SECRET` is a random 32+ character string, not a dictionary word
-- [ ] `FRONTEND_URL` is set to the exact production domain (no trailing slash)
-- [ ] MongoDB Atlas IP allowlist includes your deployment host's egress IP
-- [ ] Cloudinary API key is scoped to upload-only permissions where possible
-
----
-
-## Roadmap
-
-- [ ] Refresh token rotation (required before Android launch)
-- [ ] WebSocket layer for real-time collaborative editing
-- [ ] Writing Goal model with daily/weekly/novel-total targets
-- [ ] Writing Session model for per-session duration and productivity analytics
-- [ ] Daily analytics rollup cron for dashboard query performance at scale
-- [ ] `ChapterVersion` collection for content history and rollback
-- [ ] `ShareToken` model for revocable public share links
-- [ ] Firebase Cloud Messaging integration for push notifications
-- [ ] Full Postman collection with example responses
-
----
-
-<div align="center">
-
-Built by **Haris** · Writely © 2025
-
-</div>
+This backend repository is under active development and open for community collaboration.
